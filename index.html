@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" author="Anasan Rai">
+    <title>Anasan's Barcode Generator</title>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #3f51b5; 
+            --secondary-color: #607d8b; 
+            --background-color-start: #e1eec3; 
+            --background-color-end: #1409e7fd; 
+            --card-background: #ffffff;
+            --border-radius: 10px;
+            --box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            color: #333;
+            
+            background: linear-gradient(135deg, var(--background-color-start) 0%, var(--background-color-end) 100%);
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+        }
+
+        .card {
+            background-color: var(--card-background);
+            padding: 30px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            margin-bottom: 25px;
+        }
+
+        h1 {
+            color: var(--primary-color);
+            text-align: center;
+            margin-bottom: 25px;
+            font-weight: 300;
+        }
+
+        h2 {
+            color: var(--secondary-color);
+            border-bottom: 1px solid #e0e0e0;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--secondary-color);
+        }
+
+        input[type="text"], select {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 20px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        
+        #barcode-display {
+            display: flex;
+            flex-direction: column; 
+            align-items: center;
+            justify-content: center;
+            min-height: 150px; 
+            border: 2px dashed #ddd;
+            border-radius: var(--border-radius);
+            padding: 20px 10px;
+            text-align: center;
+            background-color: #ffffff;
+        }
+        
+        #barcode-display svg {
+            max-width: 100%;
+            height: auto;
+        }
+        
+
+        .error {
+            color: #d32f2f;
+            margin-top: 15px;
+            font-size: 0.9em;
+            font-style: italic;
+            text-align: center;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="card">
+            <h1>Anasan's Barcode Generator</h1>
+            
+            <label for="format-select">Barcode Format</label>
+            <select id="format-select">
+                <option value="CODE128">CODE128 (General Use)</option>
+                <option value="EAN13">EAN13 (Retail/Products)</option>
+                <option value="UPC">UPC (North America)</option>
+                <option value="CODE39">CODE39 (Industrial/Inventory)</option>
+            </select>
+
+            <label for="data-input">Barcode Data</label>
+            <input type="text" id="data-input" placeholder="Enter the number">
+            
+        </div>
+        
+        <div class="card">
+            <h2>Generated Barcode</h2>
+            
+            <div id="barcode-display">
+                <p id="initial-message">Enter data above to generate a barcode.</p>
+                <svg id="barcode"></svg>
+                </div>
+            
+            <p class="error" id="error-message"></p>
+        </div>
+
+    </div>
+
+    <script>
+        const dataInput = document.getElementById('data-input');
+        const formatSelect = document.getElementById('format-select');
+        const barcodeElement = document.getElementById('barcode');
+        const initialMessage = document.getElementById('initial-message');
+        const errorMessage = document.getElementById('error-message');
+
+        
+        function generateBarcode() {
+            const data = dataInput.value.trim();
+            const format = formatSelect.value;
+            
+            errorMessage.textContent = '';
+            barcodeElement.innerHTML = ''; 
+            
+            if (data === '') {
+                initialMessage.style.display = 'block';
+                return;
+            }
+
+            initialMessage.style.display = 'none';
+
+            try {
+                JsBarcode(barcodeElement, data, {
+                    format: format,
+                    displayValue: true, 
+                    lineColor: "#000",
+                    width: 2,
+                    height: 100
+                });
+
+                
+            } catch (error) {
+                errorMessage.textContent = `Error: Data invalid for the selected format. Check characters/length.`;
+            }
+        }
+
+        
+        dataInput.addEventListener('input', generateBarcode);
+        formatSelect.addEventListener('change', generateBarcode);
+
+        window.onload = generateBarcode;
+
+    </script>
+
+</body>
+</html>
