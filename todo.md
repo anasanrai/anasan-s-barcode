@@ -400,5 +400,5 @@ Development diagnostics will expose raw blocks, bounding boxes, confidence, area
 
 - [x] Inspect the selected GitHub repository and current project state before replacing repository contents.
 - [x] Write a complete README covering setup, local-first privacy, scanner workflows, validation, and PWA behavior.
-- [ ] Push the current Number to Barcode project and README to `anasanrai/anasan-s-barcode`.
-- [ ] Verify the GitHub commit and report the repository update.
+- [x] Push the current Number to Barcode project and README to `anasanrai/anasan-s-barcode`.
+- [x] Verify the GitHub commit and report the repository update.
