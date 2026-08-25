@@ -1,0 +1,139 @@
+/* Signal Field direct mode: one purpose, one camera action, one compact manual fallback. */
+.camera-direct-mode .camera-permission-card {
+  width: min(100%, 340px);
+}
+.camera-direct-mode .camera-permission-actions {
+  margin-top: 16px;
+}
+.direct-manual-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  margin-top: 8px;
+}
+.direct-manual-form input {
+  min-width: 0;
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: #111412;
+  color: #f2f3ed;
+  font:
+    14px "IBM Plex Mono",
+    monospace;
+}
+.direct-manual-form button {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid rgba(245, 185, 66, 0.38);
+  background: rgba(245, 185, 66, 0.08);
+  color: #f4d598;
+  font:
+    700 10px "IBM Plex Mono",
+    monospace;
+  letter-spacing: 0.05em;
+}
+.direct-manual-form small {
+  grid-column: 1 / -1;
+  color: #ffad9d;
+  text-align: left;
+  font-size: 10px;
+}
+.manual-recovery-mode {
+  position: relative;
+  margin-top: 7px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(8, 10, 9, 0.48);
+}
+.manual-recovery-mode > span {
+  display: block;
+  color: #9ca195;
+  font:
+    600 9px "IBM Plex Mono",
+    monospace;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.direct-result-shell {
+  min-height: 100svh;
+}
+.direct-result-stage {
+  max-width: 680px;
+  padding-top: clamp(60px, 12vh, 110px);
+}
+.native-camera-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+}
+
+.manual-capture-orb {
+  position: fixed;
+  left: 50%;
+  bottom: max(18px, calc(env(safe-area-inset-bottom) + 10px));
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 82px;
+  height: 82px;
+  margin-left: -41px;
+  border: 2px solid #d8ff91;
+  border-radius: 50%;
+  color: #11150d;
+  background: #b8ff3d;
+  box-shadow:
+    0 0 0 7px rgba(16, 19, 18, 0.7),
+    0 10px 30px rgba(184, 255, 61, 0.28);
+  font:
+    700 9px "IBM Plex Mono",
+    monospace;
+  letter-spacing: 0.08em;
+  transition:
+    transform 140ms var(--ease-out),
+    background 140ms var(--ease-out);
+}
+.manual-capture-orb:active {
+  transform: scale(0.93);
+}
+.manual-capture-orb:disabled {
+  opacity: 0.72;
+}
+.manual-capture-orb span {
+  font-size: 9px;
+}
+
+.camera-direct-mode .scan-beam {
+  animation: none;
+  opacity: 0.9;
+}
+.capture-quality.hold {
+  color: #f5b942;
+  border-color: rgba(245, 185, 66, 0.35);
+}
+.capture-quality.hold span {
+  background: #f5b942;
+  box-shadow: 0 0 9px rgba(245, 185, 66, 0.75);
+}
+.manual-bar {
+  position: relative;
+}
+.manual-input-error {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  max-width: min(320px, calc(100vw - 32px));
+  padding: 7px 9px;
+  border: 1px solid rgba(255, 173, 157, 0.36);
+  background: rgba(32, 17, 14, 0.94);
+  color: #ffad9d;
+  font:
+    600 10px/1.35 "IBM Plex Mono",
+    monospace;
+  text-align: right;
+}
