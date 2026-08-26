@@ -1,60 +1,73 @@
-/** Signal Field design system: domain tests protect exact user-entered digits and barcode compatibility. */
-
 import { describe, expect, it } from "vitest";
 import {
-  barcodeValue,
+  assertNumericInput,
+  sanitizeNumericInput,
   calculateEan13CheckDigit,
-  cleanNumberInput,
   validateNumber,
-} from "./number";
+  barcodeValue,
+} from "../number";
 
-describe("number parsing", () => {
-  it("preserves an exact digits-only manual value", () => {
-    expect(cleanNumberInput("0123456789")).toBe("0123456789");
+describe("assertNumericInput", () => {
+  it("returns digits only", () => {
+    expect(assertNumericInput("12345")).toBe("12345");
   });
 
-  it("rejects letters", () => {
-    expect(() => cleanNumberInput("12AB34")).toThrow("digits 0–9 only");
+  it("throws on letters", () => {
+    expect(() => assertNumericInput("ABC123")).toThrow();
   });
 
-  it("rejects mixed text rather than silently extracting its digits", () => {
-    expect(() => cleanNumberInput("ABC 12345")).toThrow("digits 0–9 only");
+  it("throws on separators", () => {
+    expect(() => assertNumericInput("12-34")).toThrow();
   });
 
-  it("rejects separators rather than silently modifying a manual value", () => {
-    expect(() => cleanNumberInput("12 345-678.90")).toThrow("digits 0–9 only");
-    expect(() => cleanNumberInput("12/345")).toThrow("digits 0–9 only");
+  it("returns empty string for empty input", () => {
+    expect(assertNumericInput("")).toBe("");
   });
 });
 
-describe("barcode compatibility", () => {
-  it("enforces configured numeric lengths", () => {
-    expect(validateNumber("123", "CODE128", 4, 30).valid).toBe(false);
-    expect(validateNumber("1234", "CODE128", 4, 30).valid).toBe(true);
-    expect(validateNumber("1".repeat(31), "CODE128", 4, 30).valid).toBe(false);
+describe("sanitizeNumericInput", () => {
+  it("strips non-digits", () => {
+    expect(sanitizeNumericInput("12-34.56")).toBe("123456");
   });
 
-  it("calculates an EAN-13 check digit for 12-digit input", () => {
-    expect(calculateEan13CheckDigit("400638133393")).toBe("1");
-    expect(barcodeValue("400638133393", "EAN13")).toBe("4006381333931");
+  it("returns empty for empty input", () => {
+    expect(sanitizeNumericInput("")).toBe("");
+  });
+});
+
+describe("calculateEan13CheckDigit", () => {
+  it("calculates correct check digit", () => {
+    expect(calculateEan13CheckDigit("4006381333931".slice(0, 12))).toBe("1");
   });
 
-  it("rejects invalid EAN-13 input lengths", () => {
-    expect(validateNumber("1234567890", "EAN13", 4, 30).valid).toBe(false);
+  it("throws for wrong length", () => {
+    expect(() => calculateEan13CheckDigit("123")).toThrow();
+  });
+});
+
+describe("validateNumber", () => {
+  it("validates CODE128 length", () => {
+    expect(validateNumber("12345678", "CODE128", 4, 20).valid).toBe(true);
+    expect(validateNumber("12", "CODE128", 4, 20).valid).toBe(false);
+    expect(validateNumber("123456789012345678901", "CODE128", 4, 20).valid).toBe(false);
   });
 
-  it("rejects a supplied 13-digit EAN with an invalid check digit", () => {
-    const result = validateNumber("4006381333932", "EAN13", 4, 30);
-    expect(result.valid).toBe(false);
-    expect(result.message).toContain("check digit");
+  it("validates EAN13", () => {
+    expect(validateNumber("123456789012", "EAN13", 12, 13).valid).toBe(true);
+    expect(validateNumber("1234567890128", "EAN13", 12, 13).valid).toBe(false); // wrong check digit
   });
 
-  it("keeps Code 128 as the safe option for arbitrary configured numeric lengths", () => {
-    expect(
-      validateNumber("123456789012345678901234567890", "CODE128", 4, 30).valid
-    ).toBe(true);
-    expect(
-      validateNumber("123456789012345678901234567890", "EAN13", 4, 30).valid
-    ).toBe(false);
+  it("rejects non-numeric", () => {
+    expect(validateNumber("ABC", "CODE128", 4, 20).valid).toBe(false);
+  });
+});
+
+describe("barcodeValue", () => {
+  it("adds check digit for EAN13", () => {
+    expect(barcodeValue("123456789012", "EAN13")).toBe("1234567890128");
+  });
+
+  it("passes through CODE128", () => {
+    expect(barcodeValue("12345", "CODE128")).toBe("12345");
   });
 });

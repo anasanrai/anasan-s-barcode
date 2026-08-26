@@ -1,109 +1,89 @@
 # Number to Barcode
 
-**Number to Barcode** is a mobile-first, local-first web application that recognizes one numeric identifier and immediately renders a scanner-ready **Code 128** barcode. It is designed for order screens, printed labels, reflected displays, imported photos, and handwritten return notes.
+A local-first, privacy-preserving PWA that captures numeric order IDs from camera or photo and generates scanner-ready Code 128 barcodes. All processing happens on-device — no images or data leave your browser.
 
-> All barcode detection, OCR, image preprocessing, and barcode generation run in the browser. The application does not send captured camera frames or imported images to an OCR service.
+## Features
 
-## What it does
+- **Camera-first scanning** — Live barcode detection (native `BarcodeDetector` → ZXing fallback → Tesseract OCR fallback)
+- **Screen mode** — Optimized for reading long order numbers from phone screens
+- **Photo fallback** — Capture or import images when camera access is unavailable
+- **Offline capable** — Service worker caches shell and assets for offline use
+- **PWA installable** — Add to home screen for instant camera access
+- **Privacy by design** — Zero network calls for image processing; history stored in `localStorage`
 
-| Workflow                   | Behavior                                                                                                                    |
-| -------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| Live physical barcode      | Decodes compatible linear barcodes locally before OCR. QR codes and non-numeric payloads are not accepted as order numbers. |
-| Live numeric-only screen   | Uses a focused center-line OCR pass for a quick result, then falls back to the broader local OCR path only when necessary.  |
-| Reflected or angled screen | Applies local screen normalization and allows an explicit **Capture** action to prioritize the current frame.               |
-| Photo import               | Reads a captured or selected image locally; complete photo values require agreement across two local reads.                 |
-| Handwritten return number  | Supports four-digit photo candidates after strict local confirmation. It never combines several visible values.             |
-| Manual entry               | Accepts exact digits only. Spaces, punctuation, and letters are rejected rather than altered.                               |
-| Barcode result             | Generates Code 128 by default, with copy and PNG-save actions.                                                              |
+## Tech Stack
 
-## Safety rules
+- React 19 + TypeScript 5.6
+- Vite 7 (with code splitting)
+- Tailwind CSS 4
+- Express 4 (static file server)
+- Tesseract.js (lazy-loaded OCR)
+- ZXing (barcode fallback)
+- JsBarcode (rendering)
 
-The scanner deliberately favors correctness over guessing. It accepts only complete digit-only candidates that pass configured length and format validation. It rejects letters, separators, symbols, non-numeric machine codes, date/time-like content, partial OCR values, and scenes where more than one comparable target number is visible. The result is encoded exactly as accepted; no digits are silently inserted, removed, reordered, or normalized.
-
-## Stack
-
-- **React 19**, TypeScript, Vite, and Tailwind CSS 4
-- **Tesseract.js** for browser-local OCR
-- Browser `TextDetector` when available for a fast native recognition path
-- Browser `BarcodeDetector` and ZXing for local linear-barcode detection
-- **JsBarcode** for Code 128 SVG rendering and high-resolution PNG export
-- A service worker and web app manifest for installable PWA behavior
-
-## Run locally
-
-### Prerequisites
-
-- Node.js 22 or newer
-- pnpm 10 or newer
-
-### Installation
+## Quick Start
 
 ```bash
-pnpm install
-pnpm dev
-```
+# Install dependencies
+npm install
 
-Open the Vite URL shown in the terminal. Use HTTPS on a physical phone for live camera access; browsers do not permit camera use from an insecure context.
+# Development server
+npm run dev
 
-## Validation commands
+# Type check
+npm run check
 
-```bash
-# Automated unit tests
-pnpm exec vitest run
+# Lint
+npm run lint
 
-# TypeScript validation
-pnpm check
+# Run tests
+npm run test
 
 # Production build
-pnpm build
+npm run build
 
-# Service-worker syntax check
-node --check client/public/sw.js
-
-# Formatting check
-pnpm exec prettier --check .
+# Start production server
+npm start
 ```
 
-## Project structure
+## Docker
 
-```text
-client/
-  index.html                    # App document and versioned manifest link
-  public/
-    manifest.webmanifest        # Installable app metadata
-    sw.js                       # Offline shell and update lifecycle
-  src/
-    components/
-      CameraStage.tsx           # Camera, photo, OCR, and user-feedback flow
-      BarcodePreview.tsx        # Rendered barcode presentation
-      InstallAppControl.tsx     # PWA install prompt and instructions
-    pages/
-      Home.tsx                  # Scanner and barcode result states
-    services/
-      camera.ts                 # Camera framing, local preprocessing, quality gates
-      ocr.ts                    # Local OCR worker and screen fast path
-      ocrPipeline.ts            # Strict candidate selection and confirmation rules
-      barcodeGuard.ts           # Local linear-barcode detection
-      barcode.ts                # Barcode rendering and PNG export
-      number.ts                 # Exact numeric validation and format rules
-server/
-  index.ts                      # Static production server with update-critical headers
+```bash
+docker build -t number-to-barcode .
+docker run -p 3000:3000 number-to-barcode
 ```
 
-## Mobile use
+## Project Structure
 
-1. Open the app in Chrome or Safari over HTTPS and allow camera access.
-2. Center one order number inside the reticle. The scanner automatically reads a clear numeric line.
-3. If a reflection, angle, or focus delay prevents automatic capture, press the round **Capture** button to prioritize the current frame.
-4. Use **Photo** to take or choose a still image when the live camera is unavailable.
-5. Review the generated Code 128 barcode, then copy the exact value or save a PNG label.
+```
+├── client/
+│   ├── src/
+│   │   ├── components/          # UI components
+│   │   ├── hooks/               # useCameraSession, useScanLoop
+│   │   ├── pages/               # Home, NotFound
+│   │   ├── services/            # camera, ocr, barcode, number logic
+│   │   ├── contexts/            # ThemeProvider
+│   │   └── lib/                 # utils (cn)
+│   ├── public/                  # sw.js, manifest, icons
+│   └── index.html
+├── server/
+│   └── index.ts                 # Hardened Express server
+├── .github/workflows/ci.yml     # GitHub Actions
+├── Dockerfile
+├── eslint.config.js
+├── package.json
+├── tsconfig.json
+└── vite.config.ts
+```
 
-For an installed PWA update, close all open copies of the app and reopen it after the latest service worker has been delivered. If a mobile launcher icon remains outdated, remove the old shortcut and install again.
+## Architecture Decisions
 
-## Current constraints
-
-The application can safely refuse a scene rather than guessing. For best results, position only the intended number inside the reticle, keep the phone still, and use manual capture for glare or a reflection. End-to-end optical testing must be completed on a physical camera device; a sandboxed desktop preview has no physical phone camera stream.
+- **Lazy OCR initialization** — Tesseract worker starts only when native barcode detection fails, saving ~10MB download on fast paths
+- **Cache-first SW strategy** — Hashed JS/CSS assets served from cache; HTML/manifest network-first
+- **Scan engine extracted** — `useScanLoop` hook owns the frame → barcode → OCR → decision pipeline; `CameraStage` is purely presentational
+- **Theme-aware exports** — Barcode colors read from CSS custom properties (`--barcode-line`, `--barcode-bg`)
+- **Security headers** — CSP, HSTS, X-Content-Type-Options, Permissions-Policy on all responses
 
 ## License
 
-This repository is licensed under the terms declared in `package.json`.
+MIT

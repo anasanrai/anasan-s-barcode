@@ -366,11 +366,6 @@ export class CameraService {
     context.putImageData(image, 0, 0);
   }
 
-  /**
-   * The reticle is centered on the intended order line. A focused middle band
-   * gives the local single-line OCR pass far fewer pixels to analyze; the full
-   * frame remains available as a safety fallback when this pass is uncertain.
-   */
   createFastScreenFrame(frame: HTMLCanvasElement): HTMLCanvasElement | null {
     if (!frame.width || !frame.height) return null;
     const output = document.createElement("canvas");
@@ -512,7 +507,6 @@ export type FrameMotionState = {
   stableFrames: number;
 };
 
-/** Manual capture is an explicit user instruction and must never be held behind advisory screen-sharpness feedback. */
 export function shouldWaitForScreenSharpness(
   runManualCapture: boolean,
   sharpness: number
@@ -520,7 +514,6 @@ export function shouldWaitForScreenSharpness(
   return !runManualCapture && sharpness < 7;
 }
 
-/** A clear screen-mode frame may proceed immediately; motion feedback remains advisory in the fast scanner flow. */
 export function shouldWaitForFrameMotion(
   runManualCapture: boolean,
   screenMode: boolean,

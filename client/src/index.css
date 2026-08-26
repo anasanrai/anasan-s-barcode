@@ -52,6 +52,8 @@
   --input: rgba(255,255,255,.13);
   --ring: #b8ff3d;
   --radius: .65rem;
+  --barcode-line: #101312;
+  --barcode-bg: #FCFCF5;
 }
 
 @layer base {

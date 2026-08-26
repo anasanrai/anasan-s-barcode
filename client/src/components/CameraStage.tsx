@@ -1,5 +1,4 @@
 /** Signal Field design system: explicit permission recovery and compact touch controls make the camera stage dependable on real mobile browsers. */
-/* Signal Field scanner: preserve a one-action mobile flow while exposing only actionable capture quality and OCR state. */
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
@@ -19,37 +18,24 @@ import {
 import "./ocr-audit.css";
 import "./mobile-camera.css";
 import "./direct-camera.css";
+import { CameraAccessError, type CameraAccessIssue } from "@/services/camera";
 import {
-  CameraAccessError,
-  CameraService,
-  FrameMotionTracker,
-  shouldWaitForFrameMotion,
-  shouldWaitForScreenSharpness,
-  type CameraAccessIssue,
-  type CameraRuntimeDiagnostics,
-} from "@/services/camera";
+  evaluateOcrFrame,
+  selectProminentDisplayNumber,
+  selectVerifiedPhotoOrderNumber,
+  type FrameDecision,
+  type OcrTextBlock,
+} from "@/services/ocrPipeline";
+import { NativeTextService } from "@/services/nativeText";
+import { BrowserOCRService } from "@/services/ocr";
 import {
-  BarcodeGuard,
-  selectNumericLinearBarcode,
-} from "@/services/barcodeGuard";
-import {
-  cleanNumberInput,
+  assertNumericInput,
   type BarcodeFormat,
   validateNumber,
 } from "@/services/number";
-import { BrowserOCRService, type OCRService } from "@/services/ocr";
-import { NativeTextService } from "@/services/nativeText";
 import InstallAppControl from "@/components/InstallAppControl";
-import {
-  evaluateOcrFrame,
-  selectBarcodeAdjacentNumeric,
-  selectProminentDisplayNumber,
-  selectVerifiedPhotoOrderNumber,
-  StabilityTracker,
-  type FrameDecision,
-  type OcrTextBlock,
-  type ScanState,
-} from "@/services/ocrPipeline";
+import { useCameraSession } from "@/hooks/useCameraSession";
+import { useScanLoop } from "@/hooks/useScanLoop";
 
 type CameraStageProps = {
   simpleMode?: boolean;
@@ -65,50 +51,8 @@ type CameraStageProps = {
   onConfirmed: (value: string, confidence: number) => void;
   onManualEntry: (value: string) => void;
 };
-type DebugFrame = {
-  durationMs: number;
-  engineConfidence: number;
-  decision: FrameDecision;
-  path:
-    | "barcode-native"
-    | "barcode-adaptive"
-    | "native"
-    | "ocr-fast"
-    | "ocr"
-    | "ocr-corrected";
-  skipped?: "throttled" | "in-flight";
-};
-type AccessState = "ready" | "requesting" | "active" | CameraAccessIssue;
-type CaptureQuality = {
-  state: "ready" | "hold" | "soft" | "dim" | "glare";
-  label: string;
-};
-const SCAN_INTERVAL_MS = 900;
-const REQUIRED_STABLE_FRAMES = 3;
 
-function stateCopy(
-  state: ScanState,
-  detail: string,
-  stability: number
-): { title: string; detail: string } {
-  if (state === "confirmed")
-    return {
-      title: "Number confirmed",
-      detail: "Stable across three consecutive frames. Preparing verification.",
-    };
-  if (state === "candidate")
-    return {
-      title: "Number detected",
-      detail: `${detail} Stable ${Math.min(stability, REQUIRED_STABLE_FRAMES)}/${REQUIRED_STABLE_FRAMES}.`,
-    };
-  if (state === "multiple")
-    return { title: "Multiple numbers detected", detail };
-  if (state === "invalid-format") return { title: "Invalid format", detail };
-  if (state === "uncertain") return { title: "Uncertain result", detail };
-  return { title: "Reading…", detail };
-}
-
-function permissionCopy(access: AccessState): {
+function permissionCopy(access: string): {
   eyebrow: string;
   title: string;
   message: string;
@@ -222,98 +166,65 @@ export default function CameraStage({
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
-  const cameraRef = useRef(new CameraService());
-  const barcodeGuardRef = useRef(new BarcodeGuard());
-  const ocrRef = useRef<OCRService>(new BrowserOCRService());
   const nativeTextRef = useRef(new NativeTextService());
-  const processingRef = useRef(false);
-  const queuedManualCaptureRef = useRef(false);
-  const autoRequestedRef = useRef(false);
-  const capturedRef = useRef(false);
-  const lastScanAtRef = useRef(0);
-  const stabilityRef = useRef(
-    new StabilityTracker(immediateCapture ? 1 : REQUIRED_STABLE_FRAMES)
-  );
-  const motionRef = useRef(new FrameMotionTracker(1, 18));
-  const [accessState, setAccessState] = useState<AccessState>("ready");
-  const [status, setStatus] = useState("Camera ready");
-  const [statusKind, setStatusKind] = useState<ScanState>("reading");
-  const [detail, setDetail] = useState("Enable the camera to begin local OCR.");
-  const [stableCount, setStableCount] = useState(0);
-  const [torch, setTorch] = useState(false);
-  const [zoom, setZoom] = useState(1);
+  const ocrRef = useRef(new BrowserOCRService());
+
+  const {
+    cameraService,
+    accessState,
+    torch,
+    zoom,
+    runtimeDiagnostics,
+    requestCamera,
+    autoRequest,
+    stopCamera,
+    handleTorch,
+    handleZoom,
+    handleSwitch,
+    isActive,
+  } = useCameraSession(videoRef);
+
+  const {
+    status,
+    statusKind,
+    detail,
+    stableCount,
+    captureQuality,
+    manualCapturePending,
+    debugFrame,
+    scan,
+    reset: resetScan,
+  } = useScanLoop({
+    videoRef,
+    canvasRef,
+    cameraService,
+    isActive,
+    screenMode,
+    immediateCapture,
+    autoCapture,
+    format,
+    minLength,
+    maxLength,
+    onConfirmed,
+  });
+
   const [manual, setManual] = useState("");
   const [manualError, setManualError] = useState("");
-  const [debugFrame, setDebugFrame] = useState<DebugFrame | null>(null);
-  const [runtimeDiagnostics, setRuntimeDiagnostics] =
-    useState<CameraRuntimeDiagnostics>(() =>
-      cameraRef.current.getRuntimeDiagnostics()
-    );
   const [photoStatus, setPhotoStatus] = useState("");
-  const [captureQuality, setCaptureQuality] = useState<CaptureQuality>({
-    state: "soft",
-    label: "ANALYZING LENS",
-  });
-  const [manualCapturePending, setManualCapturePending] = useState(false);
-  const isActive = accessState === "active";
 
-  const applyState = useCallback(
-    (state: ScanState, nextDetail: string, stability: number) => {
-      const copy = stateCopy(state, nextDetail, stability);
-      setStatusKind(state);
-      setStatus(copy.title);
-      setDetail(copy.detail);
-      setStableCount(stability);
-    },
-    []
-  );
-
-  const requestCamera = useCallback(async () => {
-    if (!videoRef.current || accessState === "requesting") return;
-    capturedRef.current = false;
-    stabilityRef.current.reset();
-    motionRef.current.reset();
-    setStableCount(0);
-    setCaptureQuality({ state: "hold", label: "HOLD STILL" });
-    setAccessState("requesting");
-    try {
-      await cameraRef.current.start(videoRef.current);
-      setRuntimeDiagnostics(cameraRef.current.getRuntimeDiagnostics());
-      setAccessState("active");
-      applyState(
-        "reading",
-        "Align exactly one clear horizontal line of digits inside the box.",
-        0
-      );
-    } catch (error) {
-      let issue: CameraAccessIssue =
-        error instanceof CameraAccessError ? error.issue : "unknown";
-      if (error instanceof CameraAccessError)
-        setRuntimeDiagnostics(error.diagnostics);
-      if (issue === "denied" && cameraRef.current.isAndroid()) {
-        const permission = await cameraRef.current.getPermissionState();
-        if (permission === "prompt") issue = "overlay";
-      }
-      setAccessState(issue);
-      applyState("uncertain", permissionCopy(issue).message, 0);
-    }
-  }, [accessState, applyState]);
-
+  // Auto-request camera on mount
   useEffect(() => {
-    if (autoRequestedRef.current) return;
-    autoRequestedRef.current = true;
-    const timer = window.setTimeout(() => void requestCamera(), 80);
-    return () => window.clearTimeout(timer);
-  }, [requestCamera]);
+    return autoRequest();
+  }, [autoRequest]);
+
+  // Reset scan state when camera becomes active
+  useEffect(() => {
+    if (isActive) resetScan();
+  }, [isActive, resetScan]);
 
   const acknowledgeOverlayRecovery = useCallback(() => {
-    setAccessState("ready");
-    applyState(
-      "reading",
-      "Overlays cleared. Tap Enable Rear Camera to request Android permission again.",
-      0
-    );
-  }, [applyState]);
+    stopCamera();
+  }, [stopCamera]);
 
   const openNativeCamera = () => photoInputRef.current?.click();
 
@@ -323,7 +234,6 @@ export default function CameraStage({
       event.target.value = "";
       if (!file || !canvasRef.current) return;
       setPhotoStatus("Analyzing the selected photo on this device…");
-      applyState("reading", "Reading the selected screen photo locally…", 0);
       try {
         const imageUrl = URL.createObjectURL(file);
         const image = new Image();
@@ -342,8 +252,7 @@ export default function CameraStage({
         if (!context)
           throw new Error("The image canvas could not be prepared.");
         context.drawImage(image, 0, 0, canvas.width, canvas.height);
-        URL.revokeObjectURL(imageUrl);
-        await ocrRef.current.initialize();
+
         const photoMinLength = 4;
         const chooseCandidate = (
           blocks: OcrTextBlock[],
@@ -358,10 +267,11 @@ export default function CameraStage({
               })
             : evaluateOcrFrame(blocks, {
                 format,
-                minLength,
+                minLength: photoMinLength,
                 maxLength,
                 minimumConfidence,
               });
+
         const readPhoto = async (
           frame: HTMLCanvasElement,
           minimumConfidence = 62
@@ -369,20 +279,21 @@ export default function CameraStage({
           const nativeBlocks = await nativeTextRef.current.detect(frame);
           const nativeDecision = nativeBlocks.length
             ? chooseCandidate(nativeBlocks, minimumConfidence)
-            : null;
+            : undefined;
           const recognized = await ocrRef.current.recognize(frame, {
             includeSeparatedNumericWords: screenMode,
           });
           return [
             nativeDecision,
             chooseCandidate(recognized.blocks, minimumConfidence),
-          ].filter((decision): decision is FrameDecision => Boolean(decision));
+          ].filter((d): d is FrameDecision => Boolean(d));
         };
+
         let photoDecisions = await readPhoto(canvas);
         let decision = selectVerifiedPhotoOrderNumber(photoDecisions);
         if (!decision.candidate) {
           const handwritingFrame =
-            cameraRef.current.createHandwritingFrame(canvas);
+            cameraService.createHandwritingFrame(canvas);
           if (handwritingFrame) {
             photoDecisions = [
               ...photoDecisions,
@@ -393,13 +304,13 @@ export default function CameraStage({
         }
         if (screenMode) {
           setPhotoStatus("Improving screen contrast locally…");
-          cameraRef.current.normalizeScreenFrame(canvas);
+          cameraService.normalizeScreenFrame(canvas);
           photoDecisions = [...photoDecisions, ...(await readPhoto(canvas))];
           decision = selectVerifiedPhotoOrderNumber(photoDecisions);
         }
         if (!decision.candidate && screenMode) {
           setPhotoStatus("Correcting the screen angle locally…");
-          const corrected = cameraRef.current.rotateFrame(canvas, -12);
+          const corrected = cameraService.rotateFrame(canvas, -12);
           if (corrected) {
             photoDecisions = [
               ...photoDecisions,
@@ -408,408 +319,30 @@ export default function CameraStage({
             decision = selectVerifiedPhotoOrderNumber(photoDecisions);
           }
         }
+        URL.revokeObjectURL(imageUrl);
         if (decision.candidate) {
           setPhotoStatus("");
           onConfirmed(decision.candidate.value, decision.candidate.confidence);
           return;
         }
         setPhotoStatus(decision.detail);
-        applyState(decision.state, decision.detail, 0);
       } catch (error) {
         setPhotoStatus(
           "That photo could not be read. Take a sharp image with one line of digits or use manual entry."
-        );
-        applyState(
-          "uncertain",
-          "That photo could not be read. Use a sharper photo or enter the number manually.",
-          0
         );
         if (import.meta.env.DEV)
           console.debug("[Number to Barcode OCR] photo fallback failed", error);
       }
     },
-    [applyState, format, maxLength, minLength, onConfirmed, screenMode]
+    [cameraService, format, maxLength, onConfirmed, screenMode]
   );
 
-  const scan = useCallback(
-    async (force = false) => {
-      const now = performance.now();
-      if (
-        !isActive ||
-        capturedRef.current ||
-        !videoRef.current ||
-        !canvasRef.current
-      )
-        return;
-      if (
-        videoRef.current.readyState < HTMLMediaElement.HAVE_CURRENT_DATA ||
-        !videoRef.current.videoWidth
-      ) {
-        applyState("reading", "Preparing the camera stream…", 0);
-        return;
-      }
-      if (processingRef.current) {
-        if (force) {
-          queuedManualCaptureRef.current = true;
-          setManualCapturePending(true);
-        }
-        if (import.meta.env.DEV)
-          setDebugFrame(current =>
-            current ? { ...current, skipped: "in-flight" } : current
-          );
-        return;
-      }
-      const runManualCapture = force || queuedManualCaptureRef.current;
-      if (runManualCapture) queuedManualCaptureRef.current = false;
-      const scanCooldown = immediateCapture ? 160 : SCAN_INTERVAL_MS;
-      if (!runManualCapture && now - lastScanAtRef.current < scanCooldown) {
-        if (import.meta.env.DEV)
-          setDebugFrame(current =>
-            current ? { ...current, skipped: "throttled" } : current
-          );
-        return;
-      }
-      processingRef.current = true;
-      lastScanAtRef.current = now;
-      const startedAt = performance.now();
-      if (runManualCapture) {
-        setManualCapturePending(true);
-        setCaptureQuality({ state: "ready", label: "CAPTURING" });
-      }
-      try {
-        const frame = cameraRef.current.captureCenteredFrame(
-          videoRef.current,
-          canvasRef.current,
-          screenMode
-        );
-        if (!frame) return;
-        const motion = motionRef.current.observe(frame);
-        if (
-          shouldWaitForFrameMotion(
-            runManualCapture,
-            screenMode,
-            immediateCapture,
-            motion.stable
-          )
-        ) {
-          stabilityRef.current.reset();
-          setCaptureQuality(current =>
-            current.state === "hold"
-              ? current
-              : { state: "hold", label: "HOLD STILL" }
-          );
-          applyState(
-            "reading",
-            "Hold the number still inside the frame. The sensor will lock before reading.",
-            0
-          );
-          return;
-        }
-        if (screenMode) cameraRef.current.normalizeScreenFrame(frame);
-        const rawBarcodes = await barcodeGuardRef.current.detect(frame);
-        let directBarcode = selectNumericLinearBarcode(
-          rawBarcodes,
-          minLength,
-          maxLength
-        );
-        let barcodeRegions = rawBarcodes
-          .filter(
-            barcode =>
-              barcode.format !== "qr_code" && barcode.format !== "zxing_1d"
-          )
-          .map(barcode => barcode.bbox);
-        let enhancedFrame: HTMLCanvasElement | null = null;
-        let barcodePath: DebugFrame["path"] = "barcode-native";
-        if (!directBarcode && !screenMode) {
-          enhancedFrame = cameraRef.current.createAdaptiveBarcodeFrame(frame);
-          if (enhancedFrame) {
-            const enhancedBarcodes = await barcodeGuardRef.current.detect(
-              enhancedFrame,
-              true
-            );
-            directBarcode = selectNumericLinearBarcode(
-              enhancedBarcodes,
-              minLength,
-              maxLength
-            );
-            barcodeRegions = [
-              ...barcodeRegions,
-              ...enhancedBarcodes
-                .filter(
-                  barcode =>
-                    barcode.format !== "qr_code" &&
-                    barcode.format !== "zxing_1d"
-                )
-                .map(barcode => barcode.bbox),
-            ];
-            barcodePath = "barcode-adaptive";
-          }
-        }
-        const focusRegion =
-          directBarcode?.format === "zxing_1d"
-            ? barcodeRegions[0]
-            : (directBarcode?.bbox ?? barcodeRegions[0]);
-        const quality = cameraRef.current.assessFrameQuality(
-          frame,
-          focusRegion
-        );
-        setCaptureQuality(current =>
-          current.state === quality.state && current.label === quality.label
-            ? current
-            : { state: quality.state, label: quality.label }
-        );
-        if (!screenMode && !directBarcode && barcodeRegions.length === 0)
-          setCaptureQuality(current =>
-            current.state === "hold"
-              ? current
-              : { state: "hold", label: "ALIGN BARCODE" }
-          );
-        if (
-          screenMode &&
-          !immediateCapture &&
-          shouldWaitForScreenSharpness(runManualCapture, quality.sharpness)
-        ) {
-          stabilityRef.current.reset();
-          applyState(
-            "uncertain",
-            "Hold the phone steady. Waiting for the screen number to become sharp.",
-            0
-          );
-          return;
-        }
-        if (focusRegion && quality.sharpness >= 7)
-          void cameraRef.current.freezeFocusWhenSharp();
-        const decide = (blocks: OcrTextBlock[], minimumConfidence?: number) => {
-          const rules = {
-            format,
-            minLength: screenMode ? Math.max(8, minLength) : minLength,
-            maxLength,
-            minimumConfidence,
-          };
-          return barcodeRegions.length > 0
-            ? selectBarcodeAdjacentNumeric(blocks, barcodeRegions, rules)
-            : screenMode
-              ? selectProminentDisplayNumber(blocks, rules)
-              : evaluateOcrFrame(blocks, rules);
-        };
-        let path: DebugFrame["path"] = directBarcode ? barcodePath : "ocr";
-        let recognized = {
-          blocks: [] as OcrTextBlock[],
-          engineConfidence: directBarcode ? 100 : 0,
-        };
-        let decision: FrameDecision;
-        if (directBarcode) {
-          const width = Math.max(
-            1,
-            directBarcode.bbox.x1 - directBarcode.bbox.x0
-          );
-          const height = Math.max(
-            1,
-            directBarcode.bbox.y1 - directBarcode.bbox.y0
-          );
-          decision = {
-            state: "candidate",
-            detail: "Barcode decoded locally. Preparing Code 128.",
-            candidate: {
-              value: directBarcode.value,
-              confidence: 100,
-              area: width * height,
-              bbox: directBarcode.bbox,
-            },
-            blocks: [],
-          };
-        } else {
-          const ocrFrame = enhancedFrame ?? frame;
-          recognized = {
-            blocks: await nativeTextRef.current.detect(ocrFrame),
-            engineConfidence: 100,
-          };
-          decision = recognized.blocks.length
-            ? decide(recognized.blocks)
-            : (undefined as never);
-          if (!decision?.candidate) {
-            const fastScreenFrame = screenMode
-              ? cameraRef.current.createFastScreenFrame(ocrFrame)
-              : null;
-            if (fastScreenFrame) {
-              applyState(
-                "reading",
-                "Reading the centered number line locally…",
-                0
-              );
-              recognized = await ocrRef.current.recognizeFastScreen(
-                fastScreenFrame,
-                { includeSeparatedNumericWords: true }
-              );
-              decision = decide(recognized.blocks);
-              if (decision.candidate) path = "ocr-fast";
-            }
-            if (!decision?.candidate) {
-              recognized = await ocrRef.current.recognize(ocrFrame, {
-                includeSeparatedNumericWords: screenMode,
-              });
-              decision = decide(recognized.blocks);
-            }
-          } else {
-            path = "native";
-          }
-        }
-        if (runManualCapture && screenMode && !decision.candidate) {
-          const corrected = cameraRef.current.rotateFrame(frame, 25);
-          if (corrected) {
-            applyState(
-              "reading",
-              "Correcting the screen angle and reading the current frame…",
-              0
-            );
-            recognized = await ocrRef.current.recognize(corrected, {
-              includeSeparatedNumericWords: true,
-            });
-            decision = decide(recognized.blocks, 30);
-            path = "ocr-corrected";
-          }
-        }
-        const stability =
-          decision.state === "candidate"
-            ? stabilityRef.current.observe(decision.candidate)
-            : stabilityRef.current.reset();
-        const finalState: ScanState = stability.confirmed
-          ? "confirmed"
-          : decision.state;
-        applyState(finalState, decision.detail, stability.count);
-        if (import.meta.env.DEV) {
-          setDebugFrame({
-            durationMs: Math.round(performance.now() - startedAt),
-            engineConfidence: Math.round(recognized.engineConfidence),
-            decision,
-            path,
-          });
-          console.debug("[Number to Barcode OCR]", {
-            finalState,
-            stability,
-            decision,
-            engineConfidence: recognized.engineConfidence,
-            path,
-          });
-        }
-        if (
-          stability.confirmed &&
-          decision.candidate &&
-          autoCapture &&
-          !capturedRef.current
-        ) {
-          capturedRef.current = true;
-          cameraRef.current.stop();
-          setAccessState("ready");
-          navigator.vibrate?.(32);
-          window.setTimeout(
-            () =>
-              onConfirmed(
-                decision.candidate!.value,
-                decision.candidate!.confidence
-              ),
-            immediateCapture ? 0 : 180
-          );
-        }
-      } catch (error) {
-        stabilityRef.current.reset();
-        motionRef.current.reset();
-        applyState(
-          "uncertain",
-          "Local OCR is starting or could not read this frame. Keep the number still and sharp.",
-          0
-        );
-        if (import.meta.env.DEV)
-          console.debug("[Number to Barcode OCR] frame failed", error);
-      } finally {
-        processingRef.current = false;
-        if (runManualCapture) setManualCapturePending(false);
-      }
-    },
-    [
-      applyState,
-      autoCapture,
-      format,
-      immediateCapture,
-      isActive,
-      maxLength,
-      minLength,
-      onConfirmed,
-      screenMode,
-    ]
-  );
-
-  useEffect(() => {
-    void ocrRef.current.initialize();
-    void barcodeGuardRef.current.warmFallback();
-    return () => {
-      cameraRef.current.stop();
-      void ocrRef.current.dispose();
-    };
-  }, []);
-  useEffect(() => {
-    if (!isActive || !videoRef.current) return;
-    const video = videoRef.current;
-    if ("requestVideoFrameCallback" in video) {
-      let frameHandle = 0;
-      const onFrame = () => {
-        void scan();
-        frameHandle = video.requestVideoFrameCallback(onFrame);
-      };
-      frameHandle = video.requestVideoFrameCallback(onFrame);
-      return () => video.cancelVideoFrameCallback(frameHandle);
-    }
-    const interval = window.setInterval(
-      () => void scan(),
-      immediateCapture ? 120 : 320
-    );
-    return () => window.clearInterval(interval);
-  }, [immediateCapture, isActive, scan]);
-
-  const handleTorch = async () => {
-    const enabled = !torch;
-    if (await cameraRef.current.setTorch(enabled)) setTorch(enabled);
-    else
-      applyState(
-        "uncertain",
-        "This camera does not expose a browser torch control.",
-        stableCount
-      );
-  };
-  const handleZoom = async () => {
-    const nextZoom = zoom === 1 ? 1.6 : zoom === 1.6 ? 2.2 : 1;
-    if (await cameraRef.current.setZoom(nextZoom)) setZoom(nextZoom);
-    else
-      applyState(
-        "uncertain",
-        "Pinch-to-zoom may still be available in your browser.",
-        stableCount
-      );
-  };
-  const handleSwitch = async () => {
-    if (!videoRef.current) return;
-    try {
-      await cameraRef.current.switchCamera(videoRef.current);
-      motionRef.current.reset();
-      setCaptureQuality({ state: "hold", label: "HOLD STILL" });
-      applyState(
-        "reading",
-        "Camera switched. Hold the number inside the frame for a moment.",
-        0
-      );
-    } catch (error) {
-      const issue =
-        error instanceof CameraAccessError ? error.issue : "unknown";
-      setAccessState(issue);
-      applyState("uncertain", permissionCopy(issue).message, 0);
-    }
-  };
   const recovery = permissionCopy(accessState);
 
   const submitManual = (event: React.FormEvent) => {
     event.preventDefault();
     try {
-      const value = cleanNumberInput(manual);
+      const value = assertNumericInput(manual);
       const validation = validateNumber(value, format, minLength, maxLength);
       if (!validation.valid) {
         setManualError(validation.message || "Enter a valid numeric value.");
@@ -821,7 +354,6 @@ export default function CameraStage({
       setManualError(
         error instanceof Error ? error.message : "Enter digits 0–9 only."
       );
-      return;
     }
   };
 
@@ -862,6 +394,7 @@ export default function CameraStage({
           )}
         </div>
       </div>
+
       <div className="camera-viewport" role="presentation">
         <div className="camera-fallback" />
         <video
@@ -935,13 +468,7 @@ export default function CameraStage({
                   <Camera size={21} />
                 )}
               </div>
-              <p className="eyebrow">
-                {simpleMode && accessState === "requesting"
-                  ? "Starting local camera"
-                  : simpleMode
-                    ? recovery.eyebrow
-                    : recovery.eyebrow}
-              </p>
+              <p className="eyebrow">{recovery.eyebrow}</p>
               <h2>
                 {simpleMode && accessState === "ready"
                   ? "Point at the order number"
@@ -993,7 +520,7 @@ export default function CameraStage({
                         >
                           <input
                             value={manual}
-                            onChange={event => {
+                            onChange={(event) => {
                               setManual(event.target.value);
                               setManualError("");
                             }}
@@ -1030,13 +557,7 @@ export default function CameraStage({
                   {photoStatus}
                 </p>
               )}
-              <p className="camera-permission-help">
-                {simpleMode
-                  ? accessState === "ready"
-                    ? "Camera and OCR work locally on this device."
-                    : recovery.help
-                  : recovery.help}
-              </p>
+              <p className="camera-permission-help">{recovery.help}</p>
               {import.meta.env.DEV && (
                 <p className="camera-runtime-note">
                   {runtimeDiagnostics.secureContext ? "Secure" : "Insecure"} ·{" "}
@@ -1054,6 +575,7 @@ export default function CameraStage({
           </div>
         )}
       </div>
+
       {isActive && (
         <>
           <div className="camera-status-panel" aria-live="polite">
@@ -1067,9 +589,9 @@ export default function CameraStage({
             {!immediateCapture && (
               <div
                 className="stability-pips"
-                aria-label={`${stableCount} of ${REQUIRED_STABLE_FRAMES} stable readings`}
+                aria-label={`${stableCount} of 3 stable readings`}
               >
-                {[1, 2, 3].map(step => (
+                {[1, 2, 3].map((step) => (
                   <i
                     key={step}
                     className={stableCount >= step ? "active" : ""}
@@ -1101,9 +623,6 @@ export default function CameraStage({
                   {debugFrame.engineConfidence}% · state{" "}
                   {debugFrame.decision.state}
                   {debugFrame.skipped ? ` · ${debugFrame.skipped}` : ""}
-                  {barcodeGuardRef.current.isAvailable
-                    ? " · machine-code guard on"
-                    : " · guard unavailable"}
                 </p>
                 {debugFrame.decision.blocks.map((block, index) => (
                   <div
@@ -1131,6 +650,7 @@ export default function CameraStage({
                 <button
                   className={`camera-action ${torch ? "active" : ""}`}
                   onClick={() => void handleTorch()}
+                  aria-pressed={torch}
                 >
                   <Flashlight size={18} />
                   <span>Torch</span>
@@ -1154,7 +674,7 @@ export default function CameraStage({
                 <ScanLine size={17} />
                 <input
                   value={manual}
-                  onChange={event => {
+                  onChange={(event) => {
                     setManual(event.target.value);
                     setManualError("");
                   }}
@@ -1179,7 +699,7 @@ export default function CameraStage({
         type="file"
         accept="image/*"
         capture="environment"
-        onChange={event => void handlePhotoSelection(event)}
+        onChange={(event) => void handlePhotoSelection(event)}
         aria-label="Take or choose a photo to read"
       />
       <canvas ref={canvasRef} className="hidden" />

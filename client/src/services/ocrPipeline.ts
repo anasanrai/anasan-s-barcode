@@ -161,7 +161,6 @@ export function evaluateOcrFrame(
   };
 }
 
-/** Selects only an all-digit line printed immediately below a detected linear barcode. */
 export function selectBarcodeAdjacentNumeric(
   blocks: OcrTextBlock[],
   barcodeRegions: BoundingBox[],
@@ -214,7 +213,6 @@ export function selectBarcodeAdjacentNumeric(
   };
 }
 
-/** Chooses the prominent long standalone numeric line on a photographed device screen. */
 export function selectProminentDisplayNumber(
   blocks: OcrTextBlock[],
   rules: CandidateRules
@@ -265,11 +263,6 @@ export function selectProminentDisplayNumber(
   };
 }
 
-/**
- * A still photo is decoded only after the same complete order ID is seen by two
- * independent local reads. This prevents a six-digit OCR prefix from becoming a
- * barcode when glare or an icon obscures the remainder of a longer number.
- */
 export function selectVerifiedPhotoOrderNumber(
   decisions: FrameDecision[]
 ): FrameDecision {

@@ -1,6 +1,5 @@
 /* Signal Field mobile extension: permission recovery is touch-first, safe-area aware, and compact on short screens. */
 
-/* Signal Field compact header: founder portrait mark stays clearly recognizable while scanner controls remain primary. */
 .camera-viewport { min-height: 260px; }
 .camera-permission-layer { position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column; justify-content: flex-end; padding: 18px 18px max(22px, env(safe-area-inset-bottom)); background: linear-gradient(180deg, rgba(10,12,11,.05) 10%, rgba(10,12,11,.38) 48%, rgba(10,12,11,.94) 100%); }
 .camera-permission-card { position: relative; z-index: 5; width: 100%; padding: 18px 2px 0; border-top: 1px solid rgba(184,255,61,.33); background: linear-gradient(90deg, rgba(184,255,61,.10), transparent 38%); box-shadow: none; text-align: left; }

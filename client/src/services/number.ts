@@ -8,7 +8,8 @@ export type NumberValidation = {
   recommendation?: string;
 };
 
-export function cleanNumberInput(raw: string): string {
+/** Asserts the input is already digits-only. Throws if not. */
+export function assertNumericInput(raw: string): string {
   if (!raw) return "";
   if (!/^\d+$/.test(raw)) {
     throw new Error(
@@ -16,6 +17,12 @@ export function cleanNumberInput(raw: string): string {
     );
   }
   return raw;
+}
+
+/** Strips non-digit characters and returns digits only. Does not throw. */
+export function sanitizeNumericInput(raw: string): string {
+  if (!raw) return "";
+  return raw.replace(/\D/g, "");
 }
 
 export function calculateEan13CheckDigit(digits: string): string {

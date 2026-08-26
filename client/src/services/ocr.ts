@@ -5,11 +5,6 @@ import type { OcrTextBlock } from "./ocrPipeline";
 
 export type OcrFrame = { blocks: OcrTextBlock[]; engineConfidence: number };
 export type RecognizeOptions = {
-  /**
-   * Screen UIs often place an order number and a status badge on the same visual
-   * line. Tesseract exposes their separate word boxes, which lets the selector
-   * evaluate the exact numeric word without extracting digits from mixed text.
-   */
   includeSeparatedNumericWords?: boolean;
 };
 
@@ -27,13 +22,14 @@ export interface OCRService {
     options?: RecognizeOptions
   ): Promise<OcrFrame>;
   dispose(): Promise<void>;
+  get isReady(): boolean;
 }
 
 export function blocksFromOcrLines(
   lines: OcrLine[],
   options: RecognizeOptions = {}
 ): OcrTextBlock[] {
-  return lines.flatMap(line => {
+  return lines.flatMap((line) => {
     const text = line.text.trim();
     const lineBlock: OcrTextBlock = {
       text: line.text,
@@ -44,21 +40,21 @@ export function blocksFromOcrLines(
     if (/^\d+$/.test(text)) return [lineBlock];
 
     const words = line.words ?? [];
-    const hasExplicitNumericWord = words.some(word =>
+    const hasExplicitNumericWord = words.some((word) =>
       /^\d+$/.test(word.text.trim())
     );
     if (options.includeSeparatedNumericWords && hasExplicitNumericWord) {
       return [
         lineBlock,
         ...words
-          .filter(word => word.text.trim())
-          .map(word => ({ ...word, source: "word" })),
+          .filter((word) => word.text.trim())
+          .map((word) => ({ ...word, source: "word" })),
       ];
     }
     if (/[A-Za-z]/.test(text)) return [lineBlock];
 
     return words.length
-      ? words.map(word => ({ ...word, source: "word" }))
+      ? words.map((word) => ({ ...word, source: "word" }))
       : [lineBlock];
   });
 }
@@ -66,9 +62,25 @@ export function blocksFromOcrLines(
 export class BrowserOCRService implements OCRService {
   private worker: Worker | null = null;
   private pageMode = PSM.SPARSE_TEXT;
+  private initPromise: Promise<void> | null = null;
+
+  get isReady(): boolean {
+    return this.worker !== null;
+  }
 
   async initialize(): Promise<void> {
     if (this.worker) return;
+    if (this.initPromise) return this.initPromise;
+
+    this.initPromise = this.doInitialize();
+    try {
+      await this.initPromise;
+    } finally {
+      this.initPromise = null;
+    }
+  }
+
+  private async doInitialize(): Promise<void> {
     this.worker = await createWorker("eng", 1, {
       logger: () => undefined,
     });
@@ -82,7 +94,7 @@ export class BrowserOCRService implements OCRService {
     frame: HTMLCanvasElement,
     options: RecognizeOptions = {}
   ): Promise<OcrFrame> {
-    if (!this.worker) await this.initialize();
+    await this.initialize();
     if (!this.worker) return { blocks: [], engineConfidence: 0 };
     await this.setPageMode(PSM.SPARSE_TEXT);
     return this.recognizeFrame(frame, options);
@@ -92,7 +104,7 @@ export class BrowserOCRService implements OCRService {
     frame: HTMLCanvasElement,
     options: RecognizeOptions = {}
   ): Promise<OcrFrame> {
-    if (!this.worker) await this.initialize();
+    await this.initialize();
     if (!this.worker) return { blocks: [], engineConfidence: 0 };
     await this.setPageMode(PSM.SINGLE_LINE);
     return this.recognizeFrame(frame, options);
@@ -110,15 +122,15 @@ export class BrowserOCRService implements OCRService {
   ): Promise<OcrFrame> {
     if (!this.worker) return { blocks: [], engineConfidence: 0 };
     const result = await this.worker.recognize(frame, {}, { blocks: true });
-    const lines = (result.data.blocks ?? []).flatMap(block =>
-      block.paragraphs.flatMap(paragraph => paragraph.lines)
+    const lines = (result.data.blocks ?? []).flatMap((block) =>
+      block.paragraphs.flatMap((paragraph) => paragraph.lines)
     );
     const blocks = lines.length
       ? blocksFromOcrLines(lines, options)
       : result.data.text
           .split(/\r?\n/)
           .filter(Boolean)
-          .map(text => ({
+          .map((text) => ({
             text,
             confidence: result.data.confidence,
             bbox: { x0: 0, y0: 0, x1: frame.width, y1: frame.height },
@@ -143,4 +155,7 @@ export class UnavailableOCRService implements OCRService {
     return { blocks: [], engineConfidence: 0 };
   }
   async dispose(): Promise<void> {}
+  get isReady(): boolean {
+    return false;
+  }
 }

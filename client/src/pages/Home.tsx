@@ -1,5 +1,4 @@
 /** Signal Field direct mode: one-purpose camera scanning converts a stable long numeric string straight into a Code 128 barcode. */
-/* Signal Field result stage: make the verified number useful immediately, with direct re-scan, copy, and save actions. */
 import { useRef, useState } from "react";
 import { Check, Copy, Download, RefreshCcw, TriangleAlert } from "lucide-react";
 import BarcodePreview from "@/components/BarcodePreview";
@@ -7,7 +6,7 @@ import CameraStage from "@/components/CameraStage";
 import { downloadBarcodePng } from "@/services/barcode";
 import {
   barcodeValue,
-  cleanNumberInput,
+  assertNumericInput,
   validateNumber,
 } from "@/services/number";
 
@@ -26,7 +25,7 @@ export default function Home() {
 
   const acceptNumber = (raw: string) => {
     try {
-      const value = cleanNumberInput(raw);
+      const value = assertNumericInput(raw);
       const validation = validateNumber(value, CODE128, MIN_LENGTH, MAX_LENGTH);
       if (!validation.valid) {
         setError(validation.message || "Use a long numeric value.");
@@ -79,7 +78,7 @@ export default function Home() {
         invert={false}
         format={CODE128}
         onCancel={() => undefined}
-        onConfirmed={value => acceptNumber(value)}
+        onConfirmed={(value) => acceptNumber(value)}
         onManualEntry={acceptNumber}
       />
     );
@@ -93,7 +92,7 @@ export default function Home() {
           <span className="founder-mark">
             <img
               src="/manus-storage/number-to-barcode-founder-mark_8a1dd44c.png"
-              alt="Founder scanner mark"
+              alt=""
             />
           </span>
           <span>
