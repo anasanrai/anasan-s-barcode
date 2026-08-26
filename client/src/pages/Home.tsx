@@ -1,162 +1,64 @@
-/** Signal Field direct mode: one-purpose camera scanning converts a stable long numeric string straight into a Code 128 barcode. */
+import { Check, Copy, RefreshCcw, TriangleAlert } from "lucide-react";
 import { useRef, useState } from "react";
-import { Check, Copy, Download, RefreshCcw, TriangleAlert } from "lucide-react";
-import BarcodePreview from "@/components/BarcodePreview";
-import CameraStage from "@/components/CameraStage";
-import { downloadBarcodePng } from "@/services/barcode";
-import {
-  barcodeValue,
-  assertNumericInput,
-  validateNumber,
-} from "@/services/number";
+import BarcodePreview, { BarcodePreviewHandle } from "@/components/BarcodePreview";
+import CameraScanner from "@/components/CameraScanner";
+import InstallApp from "@/components/InstallApp";
 
-type Screen = "camera" | "result";
-const CODE128 = "CODE128" as const;
-const MIN_LENGTH = 6;
-const MAX_LENGTH = 64;
+type Screen = "capture" | "result";
 
 export default function Home() {
-  const [screen, setScreen] = useState<Screen>("camera");
+  const [screen, setScreen] = useState<Screen>("capture");
   const [number, setNumber] = useState("");
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const barcodeRef = useRef<SVGSVGElement | null>(null);
+  const barcodeRef = useRef<BarcodePreviewHandle | null>(null);
 
-  const acceptNumber = (raw: string) => {
-    try {
-      const value = assertNumericInput(raw);
-      const validation = validateNumber(value, CODE128, MIN_LENGTH, MAX_LENGTH);
-      if (!validation.valid) {
-        setError(validation.message || "Use a long numeric value.");
-        return;
-      }
-      setNumber(value);
-      setError("");
-      setScreen("result");
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Use digits only.");
-    }
+  const capture = (value: string) => {
+    setNumber(value);
+    setError("");
+    setScreen("result");
   };
 
   const copyNumber = async () => {
     try {
       await navigator.clipboard.writeText(number);
       setCopied(true);
-      window.setTimeout(() => setCopied(false), 1800);
+      window.setTimeout(() => setCopied(false), 1600);
     } catch {
-      setError("Could not copy the number. Select it from the label instead.");
+      setError("Could not copy the number. Select it from the barcode label instead.");
     }
   };
 
-  const saveBarcode = async () => {
-    if (!barcodeRef.current) {
-      setError("The barcode preview is not ready to save yet.");
-      return;
-    }
-    try {
-      await downloadBarcodePng(barcodeRef.current, `barcode-${number}`);
-      setSaved(true);
-      window.setTimeout(() => setSaved(false), 1800);
-    } catch (reason) {
-      setError(
-        reason instanceof Error ? reason.message : "Could not save the barcode."
-      );
-    }
-  };
-
-  if (screen === "camera") {
-    return (
-      <CameraStage
-        simpleMode
-        screenMode
-        immediateCapture
-        minLength={MIN_LENGTH}
-        maxLength={MAX_LENGTH}
-        autoCapture
-        highContrast={false}
-        invert={false}
-        format={CODE128}
-        onCancel={() => undefined}
-        onConfirmed={(value) => acceptNumber(value)}
-        onManualEntry={acceptNumber}
-      />
-    );
-  }
-
-  const encoded = barcodeValue(number, CODE128);
   return (
-    <main className="app-shell direct-result-shell">
-      <header className="app-header">
-        <div className="brand-lockup">
-          <span className="founder-mark">
-            <img
-              src="/manus-storage/number-to-barcode-founder-mark_8a1dd44c.png"
-              alt=""
-            />
-          </span>
-          <span>
-            Number<span>/</span>Barcode
-          </span>
-        </div>
+    <main className="app-shell">
+      <header className="site-header">
+        <a href="/" className="brand" aria-label="Number to Barcode home"><span className="brand-mark">∣∣∣</span><span>Number<span className="brand-slash">/</span>Barcode</span></a>
+        <div className="header-actions"><InstallApp /><span className="header-note">Code 128 label studio</span></div>
       </header>
-      <section className="content-stage result-stage direct-result-stage">
-        <div className="stage-heading">
+
+      {screen === "capture" ? (
+        <CameraScanner onDetected={capture} onError={setError} />
+      ) : (
+        <section className="result-card" aria-labelledby="barcode-ready-title">
           <p className="eyebrow">Code 128 barcode</p>
-          <h1>Barcode ready.</h1>
-          <p>Your captured number is encoded exactly as shown.</p>
-        </div>
-        <div className="output-frame">
-          <div className="output-header">
-            <span>SCANNABLE LABEL</span>
-            <span>CODE 128</span>
+          <h1 id="barcode-ready-title">Barcode ready.</h1>
+          <p className="result-lede">Your number is encoded exactly as shown. Save the label, or start another scan.</p>
+          <div className="label-frame">
+            <div className="label-frame__top"><span>SCANNABLE LABEL</span><span>CODE 128</span></div>
+            <BarcodePreview ref={barcodeRef} value={number} onError={setError} />
+            <div className="label-number"><span>NUMBER</span><strong>{number}</strong></div>
           </div>
-          <BarcodePreview
-            ref={barcodeRef}
-            value={encoded}
-            format={CODE128}
-            onError={setError}
-          />
-          <div className="output-number">
-            <span>NUMBER</span>
-            <strong>{number}</strong>
+          {error && <p className="inline-error" role="alert"><TriangleAlert size={17} /> {error}</p>}
+          <div className="result-actions">
+            <button className="button button--primary" type="button" onClick={() => { setScreen("capture"); setNumber(""); setError(""); }}><RefreshCcw size={18} /> Scan next number</button>
+            <button className="button button--secondary" type="button" onClick={() => void copyNumber()}>{copied ? <Check size={18} /> : <Copy size={18} />}{copied ? "Copied" : "Copy number"}</button>
+            <button className="button button--secondary" type="button" onClick={() => barcodeRef.current?.download()}>Save PNG</button>
           </div>
-        </div>
-        {error && (
-          <div className="inline-error">
-            <TriangleAlert size={17} />
-            <span>{error}</span>
-          </div>
-        )}
-        <div className="stage-actions">
-          <button
-            className="primary-action"
-            onClick={() => {
-              setNumber("");
-              setError("");
-              setCopied(false);
-              setSaved(false);
-              setScreen("camera");
-            }}
-          >
-            <RefreshCcw size={18} /> Scan next number
-          </button>
-          <button
-            className="secondary-action"
-            onClick={() => void copyNumber()}
-          >
-            {copied ? <Check size={18} /> : <Copy size={18} />}
-            {copied ? "Copied" : "Copy number"}
-          </button>
-          <button
-            className="secondary-action"
-            onClick={() => void saveBarcode()}
-          >
-            {saved ? <Check size={18} /> : <Download size={18} />}
-            {saved ? "Saved" : "Save PNG"}
-          </button>
-        </div>
-      </section>
+        </section>
+      )}
+
+      {screen === "capture" && error && <p className="global-error" role="alert"><TriangleAlert size={17} /> {error}</p>}
+      <footer className="site-footer">Runs locally in your browser. Camera images and numbers are not sent to a server.</footer>
     </main>
   );
 }

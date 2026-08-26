@@ -1,0 +1,25 @@
+# Project TODO
+
+- [x] Replace the starter application with the Number to Barcode user interface and barcode-generation workflow.
+- [x] Preserve browser-based barcode scanning, camera controls, OCR fallback, and image-upload scanning.
+- [x] Migrate the progressive-web-app configuration and service-worker assets for installable offline use.
+- [x] Configure the project title and metadata for Number to Barcode.
+- [x] Add and run focused Vitest coverage for numeric barcode validation behavior.
+- [x] Validate the development server, production build, and responsive interface at desktop and mobile widths.
+- [x] Save a publish-ready Manus project checkpoint.
+- [x] Document minimal, requirement-aligned remediation for every No or Partly alignment finding.
+- [x] Replace digit-stripping acceptance with strict unchanged numeric validation and corrective manual-entry feedback.
+- [x] Add candidate-aware OCR handling that rejects partial, multiple, and uncertain numeric recognition.
+- [x] Restrict automatic decoding to supported numeric 1D barcode formats and handle EAN-13 checksums.
+- [x] Remove unused application-level authentication and database routing from the scanner deployment surface.
+- [x] Add regression tests for strict input, candidate ambiguity, barcode format filtering, and EAN-13 validation.
+- [x] Re-run the alignment review and verify all former No or Partly findings as Yes.
+- [x] Save the corrected barcode application in a publish-ready checkpoint.
+- [x] Remove OCR fallback from image handling so only directly decoded supported barcodes can be accepted.
+- [x] Reduce remaining server, authentication, database, and API scaffolding to static-hosting essentials.
+- [x] Show and test clear feedback when an unsupported barcode format is ignored.
+- [x] Route every decoded barcode through a tested acceptance policy shared by camera and image-upload flows.
+- [x] Add browser-aware install controls for Android and desktop progressive-web-app installation.
+- [x] Add clear iPhone/iPad installation guidance when a browser install prompt is unavailable.
+- [x] Add regression coverage for install-prompt state and verify the responsive install interface.
+- [x] Save the mobile-install update in a publish-ready checkpoint.

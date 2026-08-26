@@ -1,9 +1,0 @@
-/* Signal Field audit extension: semantic scan states and development-only diagnostics keep automatic capture explainable. */
-
-.status-dot.reading { background: #f5b942; box-shadow: 0 0 0 4px rgba(245,185,66,.12); }
-.status-dot.uncertain,.status-dot.invalid-format,.status-dot.multiple { background: #ff745f; box-shadow: 0 0 0 4px rgba(255,116,95,.12); }
-.status-dot.candidate { background: #f5b942; box-shadow: 0 0 0 4px rgba(245,185,66,.12); }
-.status-dot.confirmed { background: #b8ff3d; box-shadow: 0 0 0 4px rgba(184,255,61,.15); }
-.ocr-debug { margin: 0 17px 10px; border: 1px solid rgba(184,255,61,.21); background: #101311; color: #c6c9bf; font: 10px/1.45 "IBM Plex Mono", monospace; }
-.ocr-debug summary { padding: 10px 11px; color: #b8ff3d; cursor: pointer; }
-.ocr-debug-body { padding: 0 11px 12px; }.ocr-debug-meta { color: #92978c; margin-bottom: 8px; }.ocr-debug-block { padding: 7px 0; border-top: 1px solid rgba(255,255,255,.08); display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; }.ocr-debug-block code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #f0f1e8; }.ocr-debug-block span { color: #ffad9d; text-align: right; }.ocr-debug-block span.ok { color: #b8ff3d; }.ocr-debug-box { grid-column: 1 / -1; color: #777d72; }

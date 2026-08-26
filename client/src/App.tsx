@@ -1,29 +1,11 @@
 import { Toaster } from "sonner";
-import NotFound from "@/pages/NotFound";
-import { Route, Switch } from "wouter";
-import ErrorBoundary from "./components/ErrorBoundary";
-import { ThemeProvider } from "./contexts/ThemeContext";
-import Home from "./pages/Home";
+import Home from "@/pages/Home";
 
-function Router() {
+export default function App() {
   return (
-    <Switch>
-      <Route path={"/"} component={Home} />
-      <Route path={"/404"} component={NotFound} />
-      <Route component={NotFound} />
-    </Switch>
+    <>
+      <Home />
+      <Toaster position="top-center" richColors />
+    </>
   );
 }
-
-function App() {
-  return (
-    <ErrorBoundary>
-      <ThemeProvider defaultTheme="dark">
-        <Toaster position="top-center" />
-        <Router />
-      </ThemeProvider>
-    </ErrorBoundary>
-  );
-}
-
-export default App;
