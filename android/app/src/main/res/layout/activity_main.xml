@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/black">
+
+    <!-- Camera screen -->
+    <androidx.camera.view.PreviewView
+        android:id="@+id/previewView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <!-- Dark overlay with transparent scan window -->
+    <View
+        android:id="@+id/scanOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#6B000000" />
+
+    <!-- Scan rectangle (center) -->
+    <View
+        android:id="@+id/scanRect"
+        android:layout_width="280dp"
+        android:layout_height="170dp"
+        android:layout_gravity="center"
+        android:background="@drawable/scan_rect_border" />
+
+    <TextView
+        android:id="@+id/hintText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="0dp"
+        android:text="Point at barcode number."
+        android:textColor="#FFFFFF"
+        android:textSize="13sp"
+        android:background="#60000000"
+        android:paddingHorizontal="14dp"
+        android:paddingVertical="6dp"
+        android:layout_marginBottom="0dp" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/torchButton"
+        android:layout_width="wrap_content"
+        android:layout_height="36dp"
+        android:layout_gravity="top|end"
+        android:layout_margin="14dp"
+        android:text="Flash"
+        android:visibility="gone"
+        style="@style/Widget.Material3.Button.TonalButton"
+        app:cornerRadius="999dp" />
+
+    <!-- Result screen (initially gone) -->
+    <LinearLayout
+        android:id="@+id/resultView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:background="#FFFFFF"
+        android:padding="24dp"
+        android:visibility="gone">
+
+        <ImageView
+            android:id="@+id/barcodeImage"
+            android:layout_width="match_parent"
+            android:layout_height="220dp"
+            android:adjustViewBounds="true"
+            android:scaleType="fitCenter" />
+
+        <TextView
+            android:id="@+id/numberText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:text="06281016003788"
+            android:textColor="#334155"
+            android:textSize="13sp"
+            android:fontFamily="monospace"
+            android:letterSpacing="0.06" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/backButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:text="Back / Scan Again"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            app:cornerRadius="999dp"
+            app:strokeColor="#E2E8F0" />
+    </LinearLayout>
+
+</FrameLayout>

@@ -1,0 +1,15 @@
+#!/usr/bin/env sh
+# Thin wrapper — installs gradle via distributionUrl if needed
+set -e
+DIR="$(cd "$(dirname "$0")" && pwd)"
+WRAPPER_PROPS="$DIR/gradle/wrapper/gradle-wrapper.properties"
+DIST_URL=$(grep distributionUrl "$WRAPPER_PROPS" | cut -d'=' -f2- | sed 's/\\:/:/g')
+GRADLE_USER_HOME=${GRADLE_USER_HOME:-"$HOME/.gradle"}
+echo "Using distribution $DIST_URL"
+if command -v gradle >/dev/null 2>&1; then
+  exec gradle "$@"
+else
+  echo "Gradle not found. Install Gradle 8.10 or use Android Studio."
+  echo "On macOS: brew install gradle"
+  exit 1
+fi
