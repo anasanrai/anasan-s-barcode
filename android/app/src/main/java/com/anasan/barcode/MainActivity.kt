@@ -56,15 +56,6 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
         cameraExecutor = Executors.newSingleThreadExecutor()
 
-        // Hint positioning: below scan rect
-        binding.hintText.post {
-            val rect = IntArray(2)
-            binding.scanRect.getLocationOnScreen(rect)
-            // center hint 22dp below rect
-            val y = rect[1] + binding.scanRect.height + 28
-            binding.hintText.y = y.toFloat() - binding.hintText.height / 2f
-        }
-
         binding.backButton.setOnClickListener { showScanScreen() }
         binding.torchButton.setOnClickListener { toggleTorch() }
 

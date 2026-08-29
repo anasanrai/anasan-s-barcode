@@ -1,15 +1,30 @@
 #!/usr/bin/env sh
-# Thin wrapper — installs gradle via distributionUrl if needed
+# Simple wrapper: downloads Gradle dist on first run and executes it.
 set -e
 DIR="$(cd "$(dirname "$0")" && pwd)"
-WRAPPER_PROPS="$DIR/gradle/wrapper/gradle-wrapper.properties"
-DIST_URL=$(grep distributionUrl "$WRAPPER_PROPS" | cut -d'=' -f2- | sed 's/\\:/:/g')
-GRADLE_USER_HOME=${GRADLE_USER_HOME:-"$HOME/.gradle"}
-echo "Using distribution $DIST_URL"
-if command -v gradle >/dev/null 2>&1; then
-  exec gradle "$@"
-else
-  echo "Gradle not found. Install Gradle 8.10 or use Android Studio."
-  echo "On macOS: brew install gradle"
-  exit 1
+PROPS="$DIR/gradle/wrapper/gradle-wrapper.properties"
+DIST_URL=$(grep distributionUrl "$PROPS" | cut -d'=' -f2- | sed 's/\\:/:/g')
+DIST_ZIP="$DIR/gradle/wrapper/gradle-dist.zip"
+DIST_DIR="$DIR/gradle/wrapper/gradle-dist"
+GRADLE_BIN=""
+if [ -f "$DIST_ZIP" ] && [ -d "$DIST_DIR" ]; then
+  GRADLE_BIN=$(find "$DIST_DIR" -name gradle -type f 2>/dev/null | head -n1)
 fi
+if [ -z "$GRADLE_BIN" ] || [ ! -x "$GRADLE_BIN" ]; then
+  echo "Downloading Gradle from $DIST_URL ..."
+  mkdir -p "$DIR/gradle/wrapper"
+  if command -v curl >/dev/null 2>&1; then
+    curl -L -o "$DIST_ZIP" "$DIST_URL"
+  elif command -v wget >/dev/null 2>&1; then
+    wget -O "$DIST_ZIP" "$DIST_URL"
+  else
+    echo "Need curl or wget to fetch Gradle. Or install Gradle 8.10 via 'brew install gradle' and run 'gradle \$@'."
+    exit 1
+  fi
+  rm -rf "$DIST_DIR"
+  mkdir -p "$DIST_DIR"
+  unzip -q "$DIST_ZIP" -d "$DIST_DIR"
+  GRADLE_BIN=$(find "$DIST_DIR" -name gradle -type f | head -n1)
+  chmod +x "$GRADLE_BIN"
+fi
+exec "$GRADLE_BIN" "$@"
