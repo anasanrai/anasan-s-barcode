@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import BarcodePreview, { BarcodePreviewHandle } from "@/components/BarcodePreview";
+import InstallApp from "@/components/InstallApp";
 import PelicanScanner from "@/components/PelicanScanner";
 
 type Screen = "scan" | "result";
@@ -23,6 +24,7 @@ export default function Home() {
   if (screen === "result") {
     return (
       <main className="pelican-result">
+        <InstallApp />
         <div className="pelican-result__barcode">
           <BarcodePreview ref={barcodeRef} value={number} onError={() => {}} />
         </div>
@@ -36,6 +38,7 @@ export default function Home() {
 
   return (
     <main className="pelican-app">
+      <InstallApp />
       <PelicanScanner onDetected={handleDetected} />
     </main>
   );

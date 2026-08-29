@@ -83,3 +83,29 @@ button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparen
 .button--secondary { color:#0f172a; background: rgba(255,255,255,0.97); border-color: rgba(0,0,0,0.08); }
 
 @media (prefers-reduced-motion: reduce) { .pelican-rect::before { animation: none !important; } }
+
+/* ——— Install (PWA) ——— */
+.install-control { position: absolute; top: calc(10px + env(safe-area-inset-top)); left: 12px; z-index: 4; }
+.pelican-result .install-control { position: fixed; }
+.install-trigger {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 12px;
+  border-radius: 999px; border: 1px solid rgba(255,255,255,0.32); background: rgba(0,0,0,0.5); color: #fff;
+  font-size: 12px; font-weight: 700; backdrop-filter: blur(6px);
+}
+.pelican-result .install-trigger { background: #fff; color: #0f172a; border-color: rgba(0,0,0,0.1); }
+.install-sheet {
+  position: absolute; left: 0; top: calc(100% + 10px); width: min(300px, calc(100vw - 24px));
+  padding: 18px 16px 16px; border-radius: 14px; color: #c2d5e2; background: #10273a;
+  border: 1px solid rgba(134,203,235,0.28); box-shadow: 0 18px 45px rgba(0,0,0,0.4); font-size: 0.82rem; line-height: 1.5;
+}
+.pelican-result .install-sheet { background:#fff; color:#334155; border-color:#e2e8f0; box-shadow: 0 18px 45px rgba(0,0,0,0.18); }
+.install-sheet strong { display:block; color:#f7fbff; font-size:0.88rem; margin-bottom:7px; }
+.pelican-result .install-sheet strong { color:#0f172a; }
+.install-sheet p { margin:0; }
+.install-sheet b { color:#a3efcf; }
+.pelican-result .install-sheet b { color:#0f766e; }
+.install-sheet__icon { display:inline-grid; place-items:center; width:30px; height:30px; margin-bottom:10px; border-radius:8px; color:#82e1bb; background: rgba(130,225,187,0.12); }
+.pelican-result .install-sheet__icon { background:#f0fdfa; color:#0f766e; }
+.install-sheet__close { position:absolute; top:8px; right:8px; width:28px; height:28px; display:grid; place-items:center; border:0; background:transparent; border-radius:7px; color:#a9becd; }
+.pelican-result .install-sheet__close { color:#64748b; }
+

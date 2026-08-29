@@ -10,6 +10,11 @@ export function isIosUserAgent(userAgent: string): boolean {
   return /iphone|ipad|ipod/i.test(userAgent);
 }
 
+export function isStandaloneDisplay(): boolean {
+  const safariStandalone = (navigator as Navigator & { standalone?: boolean }).standalone;
+  return window.matchMedia("(display-mode: standalone)").matches || safariStandalone === true;
+}
+
 export function getInstallMode({ isIos, isStandalone, hasDeferredPrompt }: InstallContext): InstallMode {
   if (isStandalone) return "installed";
   if (isIos) return "ios-guide";
