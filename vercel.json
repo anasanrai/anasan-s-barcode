@@ -3,8 +3,22 @@
   "outputDirectory": "dist/public",
   "framework": "vite",
   "installCommand": "pnpm install",
+  "headers": [
+    {
+      "source": "/manifest.webmanifest",
+      "headers": [{ "key": "Content-Type", "value": "application/manifest+json" }]
+    },
+    {
+      "source": "/sw.js",
+      "headers": [
+        { "key": "Content-Type", "value": "application/javascript" },
+        { "key": "Service-Worker-Allowed", "value": "/" }
+      ]
+    }
+  ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
+    { "source": "/(manifest\\.webmanifest|sw\\.js|icon-192\\.png|icon-512\\.png|og\\.svg|icon\\.svg|hungerstation-logo-shadow\\.[^.]*\\.svg)", "destination": "/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
