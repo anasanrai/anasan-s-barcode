@@ -419,6 +419,46 @@ button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparen
   margin: 0;
 }
 
+/* Mode switch (Barcode / QR) */
+.generator__mode-switch {
+  display: inline-flex; gap: 2px;
+  background: rgba(12, 12, 18, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-pill);
+  padding: 3px;
+}
+.generator__mode-btn {
+  font-size: 13px; font-weight: 600;
+  padding: 8px 20px; border-radius: var(--radius-pill);
+  color: rgba(255, 255, 255, 0.45);
+  transition: all 0.2s var(--ease-out);
+}
+.generator__mode-btn--active {
+  background: var(--color-accent);
+  color: var(--color-bg);
+}
+.generator__mode-btn:not(.generator__mode-btn--active):hover {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* QR preview */
+.qr-art { display: flex; flex-direction: column; align-items: center; }
+.qr-svg-wrap svg {
+  width: clamp(200px, 50vw, 280px) !important;
+  height: clamp(200px, 50vw, 280px) !important;
+  display: block;
+  border-radius: var(--radius-md);
+}
+.qr-placeholder {
+  width: clamp(200px, 50vw, 280px);
+  height: clamp(200px, 50vw, 280px);
+  display: flex; align-items: center; justify-content: center;
+  border: 1.5px dashed rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-md);
+  color: rgba(255, 255, 255, 0.2);
+  font-size: 13px;
+}
+
 /* Format picker */
 .generator__formats {
   display: flex; gap: 6px; flex-wrap: wrap; justify-content: center;
