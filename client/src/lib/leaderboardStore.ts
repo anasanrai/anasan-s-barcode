@@ -9,7 +9,12 @@ export interface StarPerformer {
   imageUrl?: string;
   quote: string;
   badgeTitle: string;
+  totalOrders: number;
+  pickingTime: number;
+  assignmentTime: number;
 }
+
+export type PerformerSortKey = "score" | "orders" | "picking" | "assignment";
 
 export interface StoreLeaderboardItem {
   id: string;
@@ -42,6 +47,9 @@ const DEFAULT_STAR: StarPerformer = {
   imageUrl: "",
   quote: "Champions aren't born, they are made by hard work, focus and heart.",
   badgeTitle: "HungerStation Market",
+  totalOrders: 1420,
+  pickingTime: 8,
+  assignmentTime: 2,
 };
 
 export const DEFAULT_LEADERBOARD: LeaderboardState = {
@@ -79,16 +87,66 @@ export function sortByPerformance(stores: StoreLeaderboardItem[]): StoreLeaderbo
     .map((s, i) => ({ ...s, rank: i + 1 }));
 }
 
+export function calculatePerformerScore(performer: StarPerformer, all: StarPerformer[]): number {
+  if (all.length === 0) return 0;
+  const orders = all.map((p) => p.totalOrders);
+  const picking = all.map((p) => (p.pickingTime > 0 ? p.pickingTime : Infinity));
+  const assignment = all.map((p) => (p.assignmentTime > 0 ? p.assignmentTime : Infinity));
+  const maxOrders = Math.max(...orders);
+  const minPicking = Math.min(...picking.filter(Number.isFinite));
+  const minAssignment = Math.min(...assignment.filter(Number.isFinite));
+  const pickBest = (p: StarPerformer) => {
+    if (p.pickingTime > 0 && Number.isFinite(minPicking)) return minPicking / p.pickingTime;
+    return 0;
+  };
+  const assignBest = (p: StarPerformer) => {
+    if (p.assignmentTime > 0 && Number.isFinite(minAssignment)) return minAssignment / p.assignmentTime;
+    return 0;
+  };
+  const score =
+    (maxOrders > 0 ? performer.totalOrders / maxOrders : 0) * 40 +
+    pickBest(performer) * 30 +
+    assignBest(performer) * 30;
+  return Math.round(score * 10) / 10;
+}
+
+export function sortPerformers(performers: StarPerformer[], key: PerformerSortKey): StarPerformer[] {
+  const sorted = [...performers];
+  switch (key) {
+    case "orders":
+      sorted.sort((a, b) => b.totalOrders - a.totalOrders);
+      break;
+    case "picking":
+      sorted.sort((a, b) => (a.pickingTime || Infinity) - (b.pickingTime || Infinity));
+      break;
+    case "assignment":
+      sorted.sort((a, b) => (a.assignmentTime || Infinity) - (b.assignmentTime || Infinity));
+      break;
+    default:
+      sorted.sort(
+        (a, b) => calculatePerformerScore(b, performers) - calculatePerformerScore(a, performers),
+      );
+  }
+  return sorted;
+}
+
 export function loadLeaderboardData(): LeaderboardState {
   if (typeof window === "undefined") return DEFAULT_LEADERBOARD;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_LEADERBOARD;
     const parsed = JSON.parse(raw) as LeaderboardState;
+    const withDefaults = (p: Partial<StarPerformer>): StarPerformer => ({
+      ...DEFAULT_STAR,
+      ...p,
+      totalOrders: Number(p.totalOrders) || 0,
+      pickingTime: Number(p.pickingTime) || 0,
+      assignmentTime: Number(p.assignmentTime) || 0,
+    });
     return {
-      starPerformer: { ...DEFAULT_LEADERBOARD.starPerformer, ...parsed.starPerformer },
+      starPerformer: withDefaults({ ...DEFAULT_LEADERBOARD.starPerformer, ...parsed.starPerformer }),
       starGallery: Array.isArray(parsed.starGallery) && parsed.starGallery.length > 0
-        ? parsed.starGallery
+        ? parsed.starGallery.map(withDefaults)
         : DEFAULT_LEADERBOARD.starGallery,
       topStores: Array.isArray(parsed.topStores) && parsed.topStores.length > 0 ? parsed.topStores : DEFAULT_LEADERBOARD.topStores,
     };

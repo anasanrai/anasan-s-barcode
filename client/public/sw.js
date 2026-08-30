@@ -1,4 +1,4 @@
-const CACHE = "pelican-barcode-v5";
+const CACHE = "pelican-barcode-v6";
 
 // Injected by build script with the current hashed asset list
 const PRECACHE_ASSETS = self.__PRECACHE_ASSETS || [];
@@ -74,7 +74,7 @@ self.addEventListener("fetch", (event) => {
           caches.open(CACHE).then((cache) => cache.put("/", clone));
           return response;
         })
-        .catch(() => caches.match("/") || caches.match("/index.html"))
+        .catch(async () => (await caches.match("/")) || (await caches.match("/index.html")))
     );
     return;
   }

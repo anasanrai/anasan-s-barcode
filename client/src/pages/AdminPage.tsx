@@ -1,6 +1,7 @@
 import { ArrowLeft, Check, ImagePlus, Lock, Plus, RefreshCw, Save, Sparkles, Trash2, Trophy, Upload } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
+  calculatePerformerScore,
   type StarPerformer,
   type StoreLeaderboardItem,
   calculatePerformanceScore,
@@ -21,6 +22,9 @@ const EMPTY_PERFORMER = (): StarPerformer => ({
   imageUrl: "",
   quote: "",
   badgeTitle: "HungerStation Market",
+  totalOrders: 0,
+  pickingTime: 0,
+  assignmentTime: 0,
 });
 
 const EMPTY_STORE = (rank: number): StoreLeaderboardItem => ({
@@ -77,6 +81,18 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
     });
   };
 
+  const handleGalleryNumberChange = (
+    index: number,
+    field: "totalOrders" | "pickingTime" | "assignmentTime",
+    value: string,
+  ) => {
+    setGalleryForm((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], [field]: Math.max(0, parseFloat(value) || 0) };
+      return next;
+    });
+  };
+
   const handleGalleryImageUpload = async (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -104,9 +120,12 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
   const handleSaveGallery = (e: React.FormEvent) => {
     e.preventDefault();
     const cleaned = galleryForm.filter((p) => p.name.trim() || p.imageUrl?.trim());
-    updateStarGallery(cleaned);
-    if (cleaned[0]) {
-      updateStarPerformer(cleaned[0]);
+    const ranked = [...cleaned].sort(
+      (a, b) => calculatePerformerScore(b, cleaned) - calculatePerformerScore(a, cleaned),
+    );
+    updateStarGallery(ranked);
+    if (ranked[0]) {
+      updateStarPerformer(ranked[0]);
     }
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 2500);
@@ -290,6 +309,46 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
                           onChange={(e) => handleGalleryChange(i, "weekLabel", e.target.value)}
                           placeholder="Star label"
                         />
+                      </div>
+                    </div>
+                    <div className="admin-form__row admin-form__row--metrics">
+                      <div className="admin-form__group">
+                        <label>Total Orders</label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={performer.totalOrders}
+                          onChange={(e) => handleGalleryNumberChange(i, "totalOrders", e.target.value)}
+                          placeholder="1400"
+                        />
+                      </div>
+                      <div className="admin-form__group">
+                        <label>Picking (min)</label>
+                        <input
+                          type="number"
+                          min={0}
+                          step="0.1"
+                          value={performer.pickingTime}
+                          onChange={(e) => handleGalleryNumberChange(i, "pickingTime", e.target.value)}
+                          placeholder="8"
+                        />
+                      </div>
+                      <div className="admin-form__group">
+                        <label>Assignment (min)</label>
+                        <input
+                          type="number"
+                          min={0}
+                          step="0.1"
+                          value={performer.assignmentTime}
+                          onChange={(e) => handleGalleryNumberChange(i, "assignmentTime", e.target.value)}
+                          placeholder="2"
+                        />
+                      </div>
+                      <div className="admin-form__group">
+                        <label>Score</label>
+                        <span className="admin-stores-score">
+                          {calculatePerformerScore(performer, galleryForm).toFixed(1)}
+                        </span>
                       </div>
                     </div>
                     <div className="admin-form__group">
