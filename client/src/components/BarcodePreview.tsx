@@ -18,13 +18,16 @@ export type BarcodePreviewHandle = {
   getSvgElement: () => SVGSVGElement | null;
 };
 
-const FORMAT_CONFIG: Record<BarcodeFormat, { label: string; pattern: RegExp; description: string }> = {
-  CODE128: { label: "CODE128", pattern: /^[\x00-\x7F]+$/, description: "Any ASCII text" },
-  EAN13: { label: "EAN-13", pattern: /^\d{12,13}$/, description: "12 or 13 digits" },
-  EAN8: { label: "EAN-8", pattern: /^\d{7,8}$/, description: "7 or 8 digits" },
-  UPC: { label: "UPC-A", pattern: /^\d{11,12}$/, description: "11 or 12 digits" },
-  CODE39: { label: "CODE39", pattern: /^[A-Z0-9\-\.\ \$\/\+\%]+$/, description: "A-Z, 0-9, -.$/+%" },
-  ITF14: { label: "ITF-14", pattern: /^\d{13,14}$/, description: "13 or 14 digits" },
+const FORMAT_CONFIG: Record<
+  BarcodeFormat,
+  { label: string; pattern: RegExp; description: string; example: string }
+> = {
+  CODE128: { label: "CODE128", pattern: /^[\x00-\x7F]+$/, description: "Any ASCII text", example: "ABC-123456" },
+  EAN13: { label: "EAN-13", pattern: /^\d{12,13}$/, description: "12 or 13 digits", example: "5901234123457" },
+  EAN8: { label: "EAN-8", pattern: /^\d{7,8}$/, description: "7 or 8 digits", example: "96385074" },
+  UPC: { label: "UPC-A", pattern: /^\d{11,12}$/, description: "11 or 12 digits", example: "123456789012" },
+  CODE39: { label: "CODE39", pattern: /^[A-Z0-9\-\.\ \$\/\+\%]+$/, description: "A-Z, 0-9, -.$/+%", example: "HS-2024" },
+  ITF14: { label: "ITF-14", pattern: /^\d{13,14}$/, description: "13 or 14 digits", example: "1234567890123" },
 };
 
 function getBarcodeColors(_theme: "dark" | "light") {

@@ -1,16 +1,35 @@
-import { Award, Crown, MapPin, Sparkles, Star, Trophy } from "lucide-react";
+import { Award, Crown, MapPin, Sparkles, Star, Trophy, User } from "lucide-react";
+import { useEffect, useState } from "react";
 import type { StarPerformer } from "@/lib/leaderboardStore";
 import { useLang } from "@/lib/i18n";
 
 interface Props {
-  performer: StarPerformer;
+  performers: StarPerformer[];
+  onOpenGallery?: () => void;
   className?: string;
 }
 
-export default function StarPerformerCard({ performer, className = "" }: Props) {
+export default function StarPerformerCard({ performers, onOpenGallery, className = "" }: Props) {
   const { t } = useLang();
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    if (performers.length <= 1) return;
+    const id = setInterval(() => {
+      setIndex((i) => (i + 1) % performers.length);
+    }, 4000);
+    return () => clearInterval(id);
+  }, [performers.length]);
+
+  useEffect(() => {
+    setIndex(0);
+  }, [performers.length]);
+
+  const performer = performers[index] ?? performers[0];
+  if (!performer) return null;
+
   return (
-    <aside className={`star-performer-card ${className}`} aria-label="Star of the Week">
+    <aside className={`star-performer-card ${className}`} aria-label={t.starOfTheWeek}>
       <div className="star-performer-card__glow" />
 
       {/* Header Banner */}
@@ -32,7 +51,13 @@ export default function StarPerformerCard({ performer, className = "" }: Props) 
       </div>
 
       {/* Avatar / Photo */}
-      <div className="star-performer-card__avatar-wrap">
+      <button
+        type="button"
+        className="star-performer-card__avatar-wrap"
+        onClick={onOpenGallery}
+        aria-label={t.viewAllStars}
+        title={t.viewAllStars}
+      >
         <div className="star-performer-card__wreath" />
         {performer.imageUrl ? (
           <img
@@ -42,13 +67,18 @@ export default function StarPerformerCard({ performer, className = "" }: Props) 
           />
         ) : (
           <div className="star-performer-card__avatar-placeholder">
-            <Trophy size={48} className="trophy-gold" />
+            <User size={48} className="trophy-gold" />
           </div>
         )}
         <div className="star-performer-card__crown">
           <Crown size={22} fill="#FFB800" color="#FFB800" />
         </div>
-      </div>
+        {performers.length > 1 && (
+          <span className="star-performer-card__counter">
+            {index + 1} / {performers.length}
+          </span>
+        )}
+      </button>
 
       {/* Name and Role */}
       <div className="star-performer-card__name-badge">

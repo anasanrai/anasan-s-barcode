@@ -7,11 +7,12 @@ import { useLang } from "@/lib/i18n";
 interface Props {
   isOpen: boolean;
   onClose: () => void;
+  onOpenStars: () => void;
 }
 
-export default function LeaderboardModal({ isOpen, onClose }: Props) {
+export default function LeaderboardModal({ isOpen, onClose, onOpenStars }: Props) {
   const { t } = useLang();
-  const { starPerformer, topStores } = useLeaderboard();
+  const { starGallery, starPerformer, topStores } = useLeaderboard();
 
   if (!isOpen) return null;
 
@@ -36,7 +37,10 @@ export default function LeaderboardModal({ isOpen, onClose }: Props) {
         </div>
 
         <div className="leaderboard-modal-sheet__content">
-          <StarPerformerCard performer={starPerformer} />
+          <StarPerformerCard
+            performers={starGallery.length > 0 ? starGallery : [starPerformer]}
+            onOpenGallery={onOpenStars}
+          />
           <TopStoresLeaderboard stores={topStores} />
         </div>
       </div>

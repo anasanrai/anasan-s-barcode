@@ -50,18 +50,27 @@ export default function TopStoresLeaderboard({ stores, className = "" }: Props) 
                   <span className="top-stores-card__store-name">
                     <Building2 size={12} /> {store.name}
                   </span>
+                  {store.assignment && (
+                    <span className="top-stores-card__assignment">{store.assignment}</span>
+                  )}
+                  {store.pickingTime && (
+                    <span className="top-stores-card__picking-time">{store.pickingTime}</span>
+                  )}
                 </div>
               </div>
 
               <div className="top-stores-card__metrics">
-                <div className="top-stores-card__rate" title="Fulfillment Rate">
+                <div className="top-stores-card__rate" title={t.fulfillmentRate}>
                   <CheckCircle2 size={12} className="check-green" />
                   <span>{store.fulfillmentRate}%</span>
                 </div>
-                {store.ordersCount > 0 && (
-                  <span className="top-stores-card__orders">
-                    <Flame size={11} className="flame-orange" />
-                    {store.ordersCount.toLocaleString()}
+                <span className="top-stores-card__orders">
+                  <Flame size={11} className="flame-orange" />
+                  {store.ordersCount.toLocaleString()}
+                </span>
+                {store.compensationRate > 0 && (
+                  <span className="top-stores-card__compensation">
+                    {store.compensationRate}%
                   </span>
                 )}
               </div>

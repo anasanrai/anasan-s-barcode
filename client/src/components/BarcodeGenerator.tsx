@@ -95,7 +95,7 @@ export default function BarcodeGenerator({ initialValue = "" }: Props) {
         onSubmit={handleNumberSubmit}
         findMatch={findMatch}
         format={format}
-        placeholder={mode === "qr" ? t.enterTextOrUrl : format === "CODE128" ? t.enterText : t.enterDigits}
+        placeholder={mode === "qr" ? t.enterTextOrUrl : FORMAT_CONFIG[format].example}
       />
 
       {error && <p className="generator__error">{error}</p>}

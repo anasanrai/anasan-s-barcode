@@ -1,5 +1,5 @@
-import { ArrowLeft, Check, Lock, Plus, RefreshCw, Save, Sparkles, Trash2, Trophy, Upload } from "lucide-react";
-import { useState } from "react";
+import { ArrowLeft, Check, ImagePlus, Lock, Plus, RefreshCw, Save, Sparkles, Trash2, Trophy, Upload } from "lucide-react";
+import { useEffect, useState } from "react";
 import {
   type StarPerformer,
   type StoreLeaderboardItem,
@@ -8,24 +8,52 @@ import {
 
 const ADMIN_PIN = "1234";
 
+const EMPTY_PERFORMER = (): StarPerformer => ({
+  id: `star-${Date.now()}`,
+  name: "",
+  role: "",
+  branch: "",
+  weekLabel: "Star of the Week",
+  imageUrl: "",
+  quote: "",
+  badgeTitle: "HungerStation Market",
+});
+
+const EMPTY_STORE = (rank: number): StoreLeaderboardItem => ({
+  id: String(Date.now()),
+  rank,
+  name: "HungerStation Market",
+  branch: "New Branch",
+  fulfillmentRate: 98,
+  ordersCount: 1000,
+  assignment: "",
+  pickingTime: "",
+  compensationRate: 0,
+});
+
 export default function AdminPage({ onBack }: { onBack: () => void }) {
   const [pin, setPin] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [pinError, setPinError] = useState("");
-  const [activeTab, setActiveTab] = useState<"performer" | "stores">("performer");
+  const [activeTab, setActiveTab] = useState<"gallery" | "stores">("gallery");
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   const {
+    starGallery,
     starPerformer,
     topStores,
+    updateStarGallery,
     updateStarPerformer,
     updateTopStores,
     resetDefaults,
   } = useLeaderboard();
 
   // Local state for editing
-  const [performerForm, setPerformerForm] = useState<StarPerformer>({ ...starPerformer });
+  const [galleryForm, setGalleryForm] = useState<StarPerformer[]>([...starGallery]);
   const [storesForm, setStoresForm] = useState<StoreLeaderboardItem[]>([...topStores]);
+
+  useEffect(() => setGalleryForm([...starGallery]), [starGallery]);
+  useEffect(() => setStoresForm([...topStores]), [topStores]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,7 +65,15 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
     }
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleGalleryChange = (index: number, field: keyof StarPerformer, value: string) => {
+    setGalleryForm((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], [field]: value };
+      return next;
+    });
+  };
+
+  const handleGalleryImageUpload = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 512 * 1024) {
@@ -47,21 +83,26 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
     const reader = new FileReader();
     reader.onload = () => {
       const b64 = reader.result as string;
-      setPerformerForm((prev) => ({ ...prev, imageUrl: b64 }));
+      handleGalleryChange(index, "imageUrl", b64);
     };
     reader.readAsDataURL(file);
   };
 
-  const handleSavePerformer = (e: React.FormEvent) => {
-    e.preventDefault();
-    updateStarPerformer(performerForm);
-    setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 2500);
+  const handleAddPerformer = () => {
+    setGalleryForm((prev) => [...prev, EMPTY_PERFORMER()]);
   };
 
-  const handleSaveStores = (e: React.FormEvent) => {
+  const handleRemovePerformer = (index: number) => {
+    setGalleryForm((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSaveGallery = (e: React.FormEvent) => {
     e.preventDefault();
-    updateTopStores(storesForm);
+    const cleaned = galleryForm.filter((p) => p.name.trim() || p.imageUrl?.trim());
+    updateStarGallery(cleaned);
+    if (cleaned[0]) {
+      updateStarPerformer(cleaned[0]);
+    }
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 2500);
   };
@@ -75,21 +116,18 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
   };
 
   const handleAddStore = () => {
-    setStoresForm((prev) => [
-      ...prev,
-      {
-        id: String(Date.now()),
-        rank: prev.length + 1,
-        name: "HungerStation Market",
-        branch: "New Branch",
-        fulfillmentRate: 98.0,
-        ordersCount: 1000,
-      },
-    ]);
+    setStoresForm((prev) => [...prev, EMPTY_STORE(prev.length + 1)]);
   };
 
   const handleRemoveStore = (index: number) => {
     setStoresForm((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSaveStores = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateTopStores(storesForm);
+    setSaveSuccess(true);
+    setTimeout(() => setSaveSuccess(false), 2500);
   };
 
   if (!isAuthenticated) {
@@ -140,10 +178,10 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
         <div className="admin-header__tabs">
           <button
             type="button"
-            className={`admin-tab ${activeTab === "performer" ? "admin-tab--active" : ""}`}
-            onClick={() => setActiveTab("performer")}
+            className={`admin-tab ${activeTab === "gallery" ? "admin-tab--active" : ""}`}
+            onClick={() => setActiveTab("gallery")}
           >
-            <Sparkles size={16} /> Star of the Week
+            <Sparkles size={16} /> Star Gallery
           </button>
           <button
             type="button"
@@ -159,8 +197,6 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
           onClick={() => {
             if (confirm("Reset all leaderboard data to defaults?")) {
               resetDefaults();
-              setPerformerForm({ ...starPerformer });
-              setStoresForm([...topStores]);
             }
           }}
           className="admin-reset-btn"
@@ -176,94 +212,131 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
         </div>
       )}
 
-      {activeTab === "performer" && (
+      {activeTab === "gallery" && (
         <section className="admin-panel">
-          <h2 className="admin-panel__title">Edit Star of the Week</h2>
-          <form onSubmit={handleSavePerformer} className="admin-form">
-            <div className="admin-form__group">
-              <label>Performer Name</label>
-              <input
-                type="text"
-                value={performerForm.name}
-                onChange={(e) => setPerformerForm({ ...performerForm, name: e.target.value })}
-                required
-              />
-            </div>
+          <div className="admin-panel__header-row">
+            <h2 className="admin-panel__title">Edit Star Gallery</h2>
+            <button type="button" onClick={handleAddPerformer} className="admin-add-store-btn">
+              <ImagePlus size={16} /> Add Performer
+            </button>
+          </div>
 
-            <div className="admin-form__group">
-              <label>Role / Subtitle</label>
-              <input
-                type="text"
-                value={performerForm.role}
-                onChange={(e) => setPerformerForm({ ...performerForm, role: e.target.value })}
-                placeholder="Team Leader • Star Performer"
-              />
-            </div>
+          <form onSubmit={handleSaveGallery} className="admin-form">
+            <div className="admin-gallery">
+              {galleryForm.map((performer, i) => (
+                <div key={performer.id || i} className="admin-gallery-card">
+                  <div className="admin-gallery-card__media">
+                    {performer.imageUrl ? (
+                      <img src={performer.imageUrl} alt="Preview" />
+                    ) : (
+                      <div className="admin-gallery-card__placeholder">
+                        <ImagePlus size={32} />
+                        <span>No image</span>
+                      </div>
+                    )}
+                  </div>
 
-            <div className="admin-form__row">
-              <div className="admin-form__group">
-                <label>Branch / Location</label>
-                <input
-                  type="text"
-                  value={performerForm.branch}
-                  onChange={(e) => setPerformerForm({ ...performerForm, branch: e.target.value })}
-                  placeholder="Al Maathar Branch"
-                />
-              </div>
+                  <div className="admin-gallery-card__fields">
+                    <div className="admin-form__group">
+                      <label>Name</label>
+                      <input
+                        type="text"
+                        value={performer.name}
+                        onChange={(e) => handleGalleryChange(i, "name", e.target.value)}
+                        placeholder="Performer name"
+                        required
+                      />
+                    </div>
+                    <div className="admin-form__row">
+                      <div className="admin-form__group">
+                        <label>Role</label>
+                        <input
+                          type="text"
+                          value={performer.role}
+                          onChange={(e) => handleGalleryChange(i, "role", e.target.value)}
+                          placeholder="Role"
+                        />
+                      </div>
+                      <div className="admin-form__group">
+                        <label>Branch</label>
+                        <input
+                          type="text"
+                          value={performer.branch}
+                          onChange={(e) => handleGalleryChange(i, "branch", e.target.value)}
+                          placeholder="Branch"
+                        />
+                      </div>
+                    </div>
+                    <div className="admin-form__row">
+                      <div className="admin-form__group">
+                        <label>Badge</label>
+                        <input
+                          type="text"
+                          value={performer.badgeTitle}
+                          onChange={(e) => handleGalleryChange(i, "badgeTitle", e.target.value)}
+                          placeholder="Badge title"
+                        />
+                      </div>
+                      <div className="admin-form__group">
+                        <label>Header</label>
+                        <input
+                          type="text"
+                          value={performer.weekLabel}
+                          onChange={(e) => handleGalleryChange(i, "weekLabel", e.target.value)}
+                          placeholder="Star label"
+                        />
+                      </div>
+                    </div>
+                    <div className="admin-form__group">
+                      <label>Photo URL</label>
+                      <div className="admin-photo-input">
+                        <input
+                          type="text"
+                          value={performer.imageUrl}
+                          onChange={(e) => handleGalleryChange(i, "imageUrl", e.target.value)}
+                          placeholder="https://... or upload"
+                        />
+                        <label className="admin-upload-btn">
+                          <Upload size={16} /> Upload
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => handleGalleryImageUpload(i, e)}
+                            className="sr-only"
+                          />
+                        </label>
+                      </div>
+                    </div>
+                    <div className="admin-form__group">
+                      <label>Quote</label>
+                      <textarea
+                        rows={2}
+                        value={performer.quote}
+                        onChange={(e) => handleGalleryChange(i, "quote", e.target.value)}
+                        placeholder="Inspirational quote"
+                      />
+                    </div>
+                  </div>
 
-              <div className="admin-form__group">
-                <label>Banner Tag</label>
-                <input
-                  type="text"
-                  value={performerForm.badgeTitle}
-                  onChange={(e) => setPerformerForm({ ...performerForm, badgeTitle: e.target.value })}
-                  placeholder="HungerStation Market"
-                />
-              </div>
-            </div>
-
-            <div className="admin-form__group">
-              <label>Header Title</label>
-              <input
-                type="text"
-                value={performerForm.weekLabel}
-                onChange={(e) => setPerformerForm({ ...performerForm, weekLabel: e.target.value })}
-                placeholder="STAR OF THE WEEK"
-              />
-            </div>
-
-            <div className="admin-form__group">
-              <label>Performer Photo (Upload or URL)</label>
-              <div className="admin-photo-input">
-                <input
-                  type="text"
-                  value={performerForm.imageUrl}
-                  onChange={(e) => setPerformerForm({ ...performerForm, imageUrl: e.target.value })}
-                  placeholder="https://... or upload below"
-                />
-                <label className="admin-upload-btn">
-                  <Upload size={16} /> Choose Image
-                  <input type="file" accept="image/*" onChange={handleImageUpload} className="sr-only" />
-                </label>
-              </div>
-              {performerForm.imageUrl && (
-                <div className="admin-photo-preview">
-                  <img src={performerForm.imageUrl} alt="Preview" />
+                  <button
+                    type="button"
+                    onClick={() => handleRemovePerformer(i)}
+                    className="admin-gallery-card__remove"
+                    aria-label="Remove performer"
+                    title="Remove performer"
+                  >
+                    <Trash2 size={16} />
+                  </button>
                 </div>
-              )}
+              ))}
             </div>
 
-            <div className="admin-form__group">
-              <label>Inspirational Quote</label>
-              <textarea
-                rows={2}
-                value={performerForm.quote}
-                onChange={(e) => setPerformerForm({ ...performerForm, quote: e.target.value })}
-              />
-            </div>
+            {galleryForm.length === 0 && (
+              <p className="admin-empty">No performers yet. Click “Add Performer” to start the gallery.</p>
+            )}
 
             <button type="submit" className="admin-save-btn">
-              <Save size={18} /> Save Performer
+              <Save size={18} /> Save Gallery
             </button>
           </form>
         </section>
@@ -279,12 +352,15 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
           </div>
 
           <form onSubmit={handleSaveStores} className="admin-form">
-            <div className="admin-stores-table">
+            <div className="admin-stores-table admin-stores-table--extended">
               <div className="admin-stores-table__head">
                 <span>Rank</span>
-                <span>Branch Name</span>
+                <span>Branch</span>
                 <span>Fulfillment %</span>
-                <span>Orders Count</span>
+                <span>Total Orders</span>
+                <span>Assignment</span>
+                <span>Picking Time</span>
+                <span>Compensation %</span>
                 <span>Badge</span>
                 <span>Actions</span>
               </div>
@@ -319,9 +395,28 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
                   />
                   <input
                     type="text"
+                    value={store.assignment}
+                    onChange={(e) => handleStoreChange(i, "assignment", e.target.value)}
+                    placeholder="Assignment"
+                  />
+                  <input
+                    type="text"
+                    value={store.pickingTime}
+                    onChange={(e) => handleStoreChange(i, "pickingTime", e.target.value)}
+                    placeholder="e.g. 10 min"
+                  />
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={store.compensationRate}
+                    onChange={(e) => handleStoreChange(i, "compensationRate", parseFloat(e.target.value) || 0)}
+                    placeholder="4.5"
+                  />
+                  <input
+                    type="text"
                     value={store.badge || ""}
                     onChange={(e) => handleStoreChange(i, "badge", e.target.value)}
-                    placeholder="👑 Top 1"
+                    placeholder="Badge"
                   />
                   <button
                     type="button"

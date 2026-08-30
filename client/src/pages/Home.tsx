@@ -4,6 +4,7 @@ import PelicanScanner from "@/components/PelicanScanner";
 import Header from "@/components/Header";
 import LeaderboardModal from "@/components/LeaderboardModal";
 import AdminPage from "./AdminPage";
+import StarGalleryPage from "./StarGalleryPage";
 import { useNumberHistory } from "@/lib/useNumberHistory";
 
 function useIsMobile() {
@@ -20,17 +21,19 @@ function useIsMobile() {
   return mobile;
 }
 
+function initialView(): "app" | "admin" | "stars" {
+  if (typeof window === "undefined") return "app";
+  if (window.location.pathname.startsWith("/admin")) return "admin";
+  if (window.location.pathname.startsWith("/stars")) return "stars";
+  return "app";
+}
+
 export default function Home() {
   const isMobile = useIsMobile();
   const [screen, setScreen] = useState<"scan" | "generate">(() =>
     isMobile ? "scan" : "generate",
   );
-  const [view, setView] = useState<"app" | "admin">(() => {
-    if (typeof window !== "undefined" && window.location.pathname.startsWith("/admin")) {
-      return "admin";
-    }
-    return "app";
-  });
+  const [view, setView] = useState<"app" | "admin" | "stars">(initialView);
   const [detectedNumber, setDetectedNumber] = useState("");
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
 
@@ -45,6 +48,8 @@ export default function Home() {
     const onPop = () => {
       if (window.location.pathname.startsWith("/admin")) {
         setView("admin");
+      } else if (window.location.pathname.startsWith("/stars")) {
+        setView("stars");
       } else {
         setView("app");
       }
@@ -74,8 +79,22 @@ export default function Home() {
     setView("app");
   };
 
+  const handleOpenStars = () => {
+    window.history.pushState({}, "", "/stars");
+    setView("stars");
+  };
+
+  const handleCloseStars = () => {
+    window.history.pushState({}, "", "/");
+    setView("app");
+  };
+
   if (view === "admin") {
     return <AdminPage onBack={handleCloseAdmin} />;
+  }
+
+  if (view === "stars") {
+    return <StarGalleryPage onBack={handleCloseStars} />;
   }
 
   // Mobile layout (< 1100px)
@@ -121,6 +140,7 @@ export default function Home() {
         <LeaderboardModal
           isOpen={isLeaderboardOpen}
           onClose={() => setIsLeaderboardOpen(false)}
+          onOpenStars={handleOpenStars}
         />
       </>
     );
@@ -166,6 +186,7 @@ export default function Home() {
       <LeaderboardModal
         isOpen={isLeaderboardOpen}
         onClose={() => setIsLeaderboardOpen(false)}
+        onOpenStars={handleOpenStars}
       />
     </div>
   );
