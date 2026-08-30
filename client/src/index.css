@@ -368,3 +368,155 @@ button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparen
 .install-sheet__close:hover { color: rgba(255, 255, 255, 0.7); }
 .pelican-result .install-sheet__close { color: var(--color-text-muted); }
 .pelican-result .install-sheet__close:hover { color: var(--color-text); }
+
+/* ——— Tab Switcher ——— */
+.pelican-tabs {
+  position: absolute; bottom: calc(12px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); z-index: 4;
+  display: inline-flex; gap: 2px;
+  background: rgba(12, 12, 18, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-pill);
+  padding: 3px;
+  backdrop-filter: blur(16px);
+}
+.pelican-tabs--desktop {
+  position: fixed; bottom: 20px;
+}
+.pelican-tab {
+  padding: 10px 24px;
+  border-radius: var(--radius-pill);
+  font-size: 13px; font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  transition: all 0.2s var(--ease-out);
+}
+.pelican-tab--active {
+  background: var(--color-accent);
+  color: var(--color-bg);
+}
+.pelican-tab:not(.pelican-tab--active):hover { color: rgba(255, 255, 255, 0.85); }
+
+/* ——— Generator Page ——— */
+.pelican-app--generator {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: var(--color-bg);
+}
+
+.generator {
+  width: 100%; max-width: 560px;
+  padding: 32px 24px;
+  display: flex; flex-direction: column; align-items: center; gap: 20px;
+}
+.generator__header { text-align: center; }
+.generator__title {
+  font-family: var(--font-display);
+  font-size: 28px; font-weight: 700;
+  color: var(--color-text);
+  margin: 0 0 6px;
+  letter-spacing: -0.02em;
+}
+.generator__subtitle {
+  font-size: 14px; color: var(--color-text-muted);
+  margin: 0;
+}
+
+/* Number Input */
+.number-input-wrap { width: 100%; }
+.number-input-row {
+  position: relative; display: flex; gap: 8px;
+}
+.number-input {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 20px; font-weight: 600;
+  letter-spacing: 0.08em;
+  padding: 14px 18px;
+  border-radius: var(--radius-md);
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  background: var(--color-surface);
+  color: var(--color-text);
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+.number-input:focus { border-color: var(--color-accent); }
+.number-input::placeholder { color: rgba(255, 255, 255, 0.2); font-weight: 400; }
+.number-suggestion {
+  font-family: var(--font-mono);
+  font-size: 14px; font-weight: 600;
+  letter-spacing: 0.06em;
+  padding: 10px 16px;
+  border-radius: var(--radius-md);
+  border: 1.5px solid rgba(34, 211, 238, 0.3);
+  background: var(--color-accent-dim);
+  color: var(--color-accent);
+  white-space: nowrap;
+  transition: all 0.15s var(--ease-out);
+  flex-shrink: 0;
+}
+.number-suggestion:active { transform: scale(0.96); }
+.number-input-hint {
+  font-size: 12px; color: var(--color-text-muted);
+  margin: 8px 0 0;
+}
+.number-input-hint--ok { color: var(--color-success); }
+
+/* Generate button */
+.generator__btn {
+  width: 100%;
+  padding: 14px 24px;
+  border-radius: var(--radius-md);
+  background: var(--color-accent);
+  color: var(--color-bg);
+  font-size: 15px; font-weight: 700;
+  transition: all 0.15s var(--ease-spring);
+}
+.generator__btn:active { transform: scale(0.97); }
+.generator__error {
+  font-size: 13px; color: var(--color-error);
+  background: rgba(248, 113, 113, 0.08);
+  padding: 10px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(248, 113, 113, 0.15);
+  margin: 0; width: 100%; text-align: center;
+}
+
+/* Generated barcode area */
+.generator__barcode {
+  width: 100%;
+  background: var(--color-surface);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-lg);
+  padding: 20px 16px 16px;
+  display: flex; flex-direction: column; align-items: center;
+}
+.generator__barcode .barcode-art svg {
+  width: 100% !important; max-height: none !important;
+  height: clamp(140px, 30vw, 220px) !important;
+  display: block;
+}
+.generator__barcode .barcode-caption {
+  font-family: var(--font-mono);
+  font-size: 12px; font-weight: 600;
+  letter-spacing: 0.12em;
+  color: var(--color-text-muted);
+  margin-top: 10px;
+}
+.generator__number {
+  font-family: var(--font-mono);
+  font-size: 13px; font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--color-text-muted);
+  margin: 8px 0 0;
+}
+
+/* Switch link */
+.generator__switch {
+  font-size: 13px; font-weight: 600;
+  color: var(--color-accent);
+  background: none; border: 0;
+  padding: 8px 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Result placeholder (mobile after scan) */
+.pelican-result-placeholder { display: none; }
