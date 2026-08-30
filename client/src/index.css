@@ -206,6 +206,17 @@ button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparen
 }
 .pelican-manual:active { transform: translateX(-50%) scale(0.94); }
 .pelican-manual--active { opacity: 0.6; pointer-events: none; }
+.pelican-capture-error {
+  position: absolute; bottom: calc(138px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); z-index: 3;
+  background: rgba(127, 29, 29, 0.92);
+  color: #fecaca;
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  padding: 8px 14px; border-radius: var(--radius-pill);
+  font-size: 12px; font-weight: 600; white-space: nowrap;
+  backdrop-filter: blur(12px);
+  animation: capture-error-in 0.2s var(--ease-out);
+}
+@keyframes capture-error-in { from { opacity: 0; transform: translateX(-50%) translateY(6px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
 
 /* ——— Screen 2: Result ——— */
 .pelican-result {
