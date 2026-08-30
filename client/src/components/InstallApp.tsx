@@ -39,7 +39,6 @@ export default function InstallApp() {
 
   if (mode === "installed") return null;
 
-  const label = mode === "ios-guide" ? "Install" : "Install";
   const start = async () => {
     if (mode === "ios-guide") {
       setShowGuide(true);
@@ -58,7 +57,7 @@ export default function InstallApp() {
   return (
     <div className="install-control">
       <button type="button" className="install-trigger" onClick={() => void start()} aria-haspopup={showGuide ? "dialog" : undefined}>
-        <Download size={15} /> {label}
+        <Download size={15} /> Install
       </button>
       {showGuide && (
         <section className="install-sheet" role="dialog" aria-label="Install HungerTag">

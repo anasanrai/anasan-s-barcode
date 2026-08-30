@@ -4,8 +4,6 @@ import InstallApp from "@/components/InstallApp";
 import PelicanScanner from "@/components/PelicanScanner";
 import { useNumberHistory } from "@/lib/useNumberHistory";
 
-type Screen = "scan" | "generate" | "result";
-
 function useIsMobile() {
   const [mobile, setMobile] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth < 768 : false,
@@ -22,7 +20,7 @@ function useIsMobile() {
 
 export default function Home() {
   const isMobile = useIsMobile();
-  const [screen, setScreen] = useState<Screen>("generate");
+  const [screen, setScreen] = useState<"scan" | "generate">("generate");
   const { addNumber } = useNumberHistory();
 
   useEffect(() => {
@@ -30,13 +28,8 @@ export default function Home() {
   }, [isMobile]);
 
   const handleDetected = useCallback(
-    (value: string) => {
-      addNumber(value);
-      if (isMobile) {
-        setScreen("result");
-      }
-    },
-    [addNumber, isMobile],
+    (value: string) => { addNumber(value); },
+    [addNumber],
   );
 
   const handleGoToScan = () => setScreen("scan");
@@ -59,19 +52,6 @@ export default function Home() {
           <main className="pelican-app pelican-app--generator">
             <InstallApp />
             <BarcodeGenerator onScan={handleGoToScan} />
-            <div className="pelican-tabs">
-              <button type="button" className="pelican-tab" onClick={handleGoToScan}>Scan</button>
-              <button type="button" className="pelican-tab pelican-tab--active">Generate</button>
-            </div>
-          </main>
-        )}
-        {screen === "result" && (
-          <main className="pelican-app pelican-app--generator">
-            <InstallApp />
-            <div className="pelican-result-placeholder">
-              <p className="pelican-result-placeholder__number">{/* last detected from history */}</p>
-            </div>
-            <BarcodeGenerator />
             <div className="pelican-tabs">
               <button type="button" className="pelican-tab" onClick={handleGoToScan}>Scan</button>
               <button type="button" className="pelican-tab pelican-tab--active">Generate</button>

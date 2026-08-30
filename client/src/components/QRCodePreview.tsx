@@ -1,6 +1,6 @@
 import QRCode from "qrcode";
 import { Download } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 type Props = {
   value: string;
@@ -8,7 +8,6 @@ type Props = {
 };
 
 export default function QRCodePreview({ value, onError }: Props) {
-  const svgRef = useRef<SVGSVGElement | null>(null);
   const [svgHtml, setSvgHtml] = useState("");
 
   useEffect(() => {

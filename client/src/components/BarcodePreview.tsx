@@ -1,5 +1,5 @@
 import JsBarcode from "jsbarcode";
-import { Download, Check, X } from "lucide-react";
+import { Download } from "lucide-react";
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 
 export type BarcodeFormat = "CODE128" | "EAN13" | "EAN8" | "UPC" | "CODE39" | "ITF14";
@@ -36,6 +36,10 @@ const BarcodePreview = forwardRef<BarcodePreviewHandle, BarcodePreviewProps>(fun
 ) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [valid, setValid] = useState<boolean | null>(null);
+  const onErrorRef = useRef(onError);
+  const onValidRef = useRef(onValid);
+  onErrorRef.current = onError;
+  onValidRef.current = onValid;
 
   useEffect(() => {
     if (!svgRef.current || !value) return;
@@ -50,18 +54,15 @@ const BarcodePreview = forwardRef<BarcodePreviewHandle, BarcodePreviewProps>(fun
         displayValue: false,
         valid: (isValid: boolean) => {
           setValid(isValid);
-          onValid?.(isValid);
+          onValidRef.current?.(isValid);
         },
       });
-      if (!valid) {
-        onError(`Invalid ${FORMAT_CONFIG[format].label} value.`);
-      }
     } catch {
       setValid(false);
-      onValid?.(false);
-      onError(`Invalid ${FORMAT_CONFIG[format].label} value.`);
+      onValidRef.current?.(false);
+      onErrorRef.current(`Invalid ${FORMAT_CONFIG[format].label} value.`);
     }
-  }, [value, format, lineColor, background, width, height, onError, onValid, valid]);
+  }, [value, format, lineColor, background, width, height]);
 
   const download = () => {
     const svg = svgRef.current;
@@ -77,7 +78,7 @@ const BarcodePreview = forwardRef<BarcodePreviewHandle, BarcodePreviewProps>(fun
       canvas.height = image.height * 2;
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
-      ctx.fillStyle = background ?? "#ffffff";
+      ctx.fillStyle = background ?? "#FBEF00";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
       URL.revokeObjectURL(url);
@@ -113,17 +114,16 @@ const BarcodePreview = forwardRef<BarcodePreviewHandle, BarcodePreviewProps>(fun
         <span className="barcode-caption">{value}</span>
         {valid !== null && (
           <span className={`barcode-validity ${valid ? "barcode-validity--ok" : "barcode-validity--err"}`}>
-            {valid ? <Check size={12} /> : <X size={12} />}
-            {valid ? FORMAT_CONFIG[format].label : "Invalid"}
+            {valid ? "✓" : "✗"} {valid ? FORMAT_CONFIG[format].label : "Invalid"}
           </span>
         )}
       </div>
       <div className="barcode-actions">
         <button className="barcode-download" type="button" onClick={download}>
-          <Download size={14} /> PNG
+          <Download size={12} /> PNG
         </button>
         <button className="barcode-download" type="button" onClick={downloadSvg}>
-          <Download size={14} /> SVG
+          <Download size={12} /> SVG
         </button>
       </div>
     </div>
