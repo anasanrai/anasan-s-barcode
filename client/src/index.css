@@ -177,6 +177,20 @@ button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparen
   50% { transform: translateY(65px); opacity: 1; }
 }
 
+/* Manual capture button */
+.pelican-manual {
+  position: absolute; bottom: calc(80px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); z-index: 3;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 14px 28px; border-radius: var(--radius-pill);
+  background: var(--color-accent);
+  color: var(--color-bg);
+  font-size: 15px; font-weight: 700;
+  box-shadow: 0 4px 24px rgba(34, 211, 238, 0.35), 0 0 0 1px rgba(34, 211, 238, 0.2);
+  transition: all 0.15s var(--ease-spring);
+}
+.pelican-manual:active { transform: translateX(-50%) scale(0.94); }
+.pelican-manual--active { opacity: 0.6; pointer-events: none; }
+
 /* ——— Screen 2: Result ——— */
 .pelican-result {
   min-height: 100vh; min-height: 100dvh; min-height: -webkit-fill-available;

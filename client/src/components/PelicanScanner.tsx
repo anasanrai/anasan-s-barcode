@@ -1,15 +1,17 @@
-import { Flashlight, ImageUp, Camera } from "lucide-react";
+import { Flashlight, ImageUp, Camera, Scan } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { extractPelicanNumber, FrameConfirmation } from "@/lib/pelican";
 
 type Props = { onDetected: (value: string) => void };
 
-// ---- OCR worker singleton (cross-platform) ----
+// ── OCR Worker (singleton, lazy-loaded) ──────────────────────────────────────
+
 type TWorker = {
   recognize: (src: HTMLCanvasElement | string) => Promise<{ data: { text: string } }>;
   terminate: () => Promise<void>;
   setParameters?: (p: Record<string, string | number>) => Promise<void>;
 };
+
 let workerPromise: Promise<TWorker> | null = null;
 let workerReady = false;
 
@@ -41,61 +43,56 @@ async function getWorker(): Promise<TWorker> {
   return workerPromise;
 }
 
-// Pre-warm: call immediately on import, then again on idle
 void getWorker().catch(() => {});
 if (typeof requestIdleCallback !== "undefined") {
   requestIdleCallback(() => void getWorker().catch(() => {}));
 }
 
-// Preprocess canvas for OCR: grayscale + contrast boost + threshold
-// Dramatically improves accuracy on screen photos with glare/low contrast
+// ── Image Preprocessing ──────────────────────────────────────────────────────
+
 function preprocessForOcr(src: HTMLCanvasElement): HTMLCanvasElement {
   const w = src.width;
   const h = src.height;
-  const offscreen = document.createElement("canvas");
-  offscreen.width = w;
-  offscreen.height = h;
-  const ctx = offscreen.getContext("2d", { willReadFrequently: true });
+  const off = document.createElement("canvas");
+  off.width = w;
+  off.height = h;
+  const ctx = off.getContext("2d", { willReadFrequently: true });
   if (!ctx) return src;
   ctx.drawImage(src, 0, 0);
   const img = ctx.getImageData(0, 0, w, h);
   const d = img.data;
-  // Pass 1: convert to grayscale
+
   for (let i = 0; i < d.length; i += 4) {
-    const gray = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
-    d[i] = d[i + 1] = d[i + 2] = gray;
+    d[i] = d[i + 1] = d[i + 2] = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
   }
-  // Pass 2: find min/max for adaptive contrast
+
   let min = 255, max = 0;
   for (let i = 0; i < d.length; i += 4) {
     if (d[i] < min) min = d[i];
     if (d[i] > max) max = d[i];
   }
   const range = max - min || 1;
-  // Pass 3: stretch contrast + threshold for clean B/W
-  const threshold = 140; // screen text is usually dark on light
+
   for (let i = 0; i < d.length; i += 4) {
-    // Contrast stretch to full range
     let v = ((d[i] - min) / range) * 255;
-    // Adaptive threshold: if close to mid-range, push to black or white
-    v = v < threshold ? Math.max(0, v * 0.3) : Math.min(255, 128 + v * 0.5);
+    v = v < 140 ? Math.max(0, v * 0.3) : Math.min(255, 128 + v * 0.5);
     d[i] = d[i + 1] = d[i + 2] = v;
   }
+
   ctx.putImageData(img, 0, 0);
-  return offscreen;
+  return off;
 }
+
+// ── OCR Functions ────────────────────────────────────────────────────────────
 
 async function ocrCanvas(canvas: HTMLCanvasElement): Promise<string> {
   const w = await getWorker();
-  const preprocessed = preprocessForOcr(canvas);
-  const { data } = await w.recognize(preprocessed);
+  const { data } = await w.recognize(preprocessForOcr(canvas));
   return data.text ?? "";
 }
 
-// Server OCR with tight timeout — fail fast if NIM not configured
 async function serverOcr(canvas: HTMLCanvasElement): Promise<string | null> {
   try {
-    // Preprocess before sending to server for better OCR accuracy
     const preprocessed = preprocessForOcr(canvas);
     const dataUrl = preprocessed.toDataURL("image/jpeg", 0.85);
     const b64 = dataUrl.includes(",") ? dataUrl.split(",")[1] : dataUrl;
@@ -116,14 +113,12 @@ async function serverOcr(canvas: HTMLCanvasElement): Promise<string | null> {
   }
 }
 
-// Race server + local OCR — first valid result wins
 async function raceOcr(canvas: HTMLCanvasElement): Promise<string | null> {
   const serverPromise = serverOcr(canvas);
   const localPromise = workerReady
     ? ocrCanvas(canvas).catch(() => null as string | null)
     : new Promise<null>((r) => setTimeout(() => r(null), 600));
 
-  // Server has 200ms head start — if it wins, use it; otherwise local takes over
   const result = await Promise.race([
     serverPromise.then((t) => (t ? { source: "server" as const, text: t } : null)),
     localPromise.then((t) => (t ? { source: "local" as const, text: t } : null)),
@@ -131,7 +126,6 @@ async function raceOcr(canvas: HTMLCanvasElement): Promise<string | null> {
 
   if (result) return result.text;
 
-  // Both failed — wait for whichever is still running (up to 800ms total)
   const fallback = await Promise.race([
     serverPromise,
     localPromise,
@@ -140,9 +134,17 @@ async function raceOcr(canvas: HTMLCanvasElement): Promise<string | null> {
   return fallback;
 }
 
-// Native BarcodeDetector fast path (hardware-accelerated, instant on Android Chrome/iOS 17+)
+async function ocrImageSrc(src: string): Promise<string> {
+  const w = await getWorker();
+  const { data } = await w.recognize(src);
+  return data.text ?? "";
+}
+
+// ── BarcodeDetector (hardware-accelerated) ───────────────────────────────────
+
 type BarcodeDetectorInstance = { detect: (src: CanvasImageSource) => Promise<{ rawValue: string }[]> };
 let detectorPromise: Promise<BarcodeDetectorInstance | null> | null = null;
+
 function getDetector(): Promise<BarcodeDetectorInstance | null> {
   if (detectorPromise) return detectorPromise;
   detectorPromise = (async () => {
@@ -151,21 +153,19 @@ function getDetector(): Promise<BarcodeDetectorInstance | null> {
     try {
       return new Ctor({ formats: ["code_128", "ean_13", "ean_8", "code_39", "upc_a"] });
     } catch {
-      try {
-        return new Ctor({});
-      } catch {
-        return null;
-      }
+      try { return new Ctor({}); } catch { return null; }
     }
   })();
   return detectorPromise;
 }
 
+// ── Component ────────────────────────────────────────────────────────────────
+
 export default function PelicanScanner({ onDetected }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const confirmRef = useRef(new FrameConfirmation(1)); // instant: 1 frame
+  const confirmRef = useRef(new FrameConfirmation(1));
   const busyRef = useRef(false);
   const timerRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -177,6 +177,7 @@ export default function PelicanScanner({ onDetected }: Props) {
   const [needsGesture, setNeedsGesture] = useState(false);
   const [starting, setStarting] = useState(true);
   const [cameraError, setCameraError] = useState(false);
+  const [capturing, setCapturing] = useState(false);
 
   const onDetectedRef = useRef(onDetected);
   onDetectedRef.current = onDetected;
@@ -205,6 +206,65 @@ export default function PelicanScanner({ onDetected }: Props) {
       if (torchFailCountRef.current >= 2) setTorchError(true);
     }
   };
+
+  const captureFrame = useCallback((): HTMLCanvasElement | null => {
+    const v = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!v || !canvas || v.readyState < 2 || v.videoWidth === 0) return null;
+    const vw = v.videoWidth;
+    const vh = v.videoHeight;
+    const sw = vw * 0.76;
+    const sh = vh * 0.44;
+    const sx = (vw - sw) / 2;
+    const sy = (vh - sh) / 2;
+    const scale = 1.35;
+    canvas.width = Math.round(sw * scale);
+    canvas.height = Math.round(sh * scale);
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return null;
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(v, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+    return canvas;
+  }, []);
+
+  const handleManualCapture = useCallback(async () => {
+    if (capturing || busyRef.current) return;
+    setCapturing(true);
+    try {
+      const canvas = captureFrame();
+      if (!canvas) return;
+
+      const detector = await getDetector();
+      if (detector) {
+        try {
+          const barcodes = await detector.detect(canvas);
+          for (const b of barcodes) {
+            const val = (b.rawValue ?? "").trim();
+            if (/^\d{8,64}$/.test(val)) {
+              const cand = extractPelicanNumber(val) ?? (val.length === 14 ? val : null);
+              if (cand) {
+                stopCamera();
+                onDetectedRef.current(cand);
+                return;
+              }
+            }
+          }
+        } catch {}
+      }
+
+      const text = await raceOcr(canvas);
+      if (text) {
+        const candidate = extractPelicanNumber(text);
+        if (candidate) {
+          stopCamera();
+          onDetectedRef.current(candidate);
+          return;
+        }
+      }
+    } finally {
+      setCapturing(false);
+    }
+  }, [capturing, captureFrame, stopCamera]);
 
   const startCamera = useCallback(async () => {
     setCameraError(false);
@@ -251,36 +311,18 @@ export default function PelicanScanner({ onDetected }: Props) {
       if (caps?.torch) setTorchSupported(true);
       setStarting(false);
 
-      // Pre-warm detector + worker while camera starts
       void getDetector().catch(() => {});
       void getWorker().catch(() => {});
 
-      // INSTANT sampling: 260ms — race all OCR paths in parallel
       timerRef.current = window.setInterval(async () => {
         if (busyRef.current) return;
-        const v = videoRef.current;
-        const canvas = canvasRef.current;
-        if (!v || !canvas || v.readyState < 2 || v.videoWidth === 0 || v.paused) return;
+        const canvas = captureFrame();
+        if (!canvas) return;
         busyRef.current = true;
         try {
-          const vw = v.videoWidth;
-          const vh = v.videoHeight;
-          const sw = vw * 0.76;
-          const sh = vh * 0.44;
-          const sx = (vw - sw) / 2;
-          const sy = (vh - sh) / 2;
-          const scale = 1.35;
-          canvas.width = Math.round(sw * scale);
-          canvas.height = Math.round(sh * scale);
-          const ctx = canvas.getContext("2d", { willReadFrequently: true });
-          if (!ctx) return;
-          ctx.imageSmoothingEnabled = true;
-          ctx.drawImage(v, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
-
-          // 1) Native BarcodeDetector fast path (~10-30ms, hardware)
-          try {
-            const detector = await getDetector();
-            if (detector) {
+          const detector = await getDetector();
+          if (detector) {
+            try {
               const barcodes = await detector.detect(canvas);
               for (const b of barcodes) {
                 const val = (b.rawValue ?? "").trim();
@@ -296,10 +338,9 @@ export default function PelicanScanner({ onDetected }: Props) {
                   }
                 }
               }
-            }
-          } catch {}
+            } catch {}
+          }
 
-          // 2) Race server + local OCR — first valid text wins (~120-300ms)
           const text = await raceOcr(canvas);
           if (text) {
             const candidate = extractPelicanNumber(text);
@@ -309,8 +350,7 @@ export default function PelicanScanner({ onDetected }: Props) {
               onDetectedRef.current(confirmed);
             }
           }
-        } catch {
-        } finally {
+        } catch {} finally {
           busyRef.current = false;
         }
       }, 260);
@@ -320,7 +360,7 @@ export default function PelicanScanner({ onDetected }: Props) {
       else setCameraError(true);
       setStarting(false);
     }
-  }, [stopCamera]);
+  }, [stopCamera, captureFrame]);
 
   useEffect(() => {
     void startCamera();
@@ -352,12 +392,7 @@ export default function PelicanScanner({ onDetected }: Props) {
             const val = (b.rawValue ?? "").trim();
             if (/^\d{8,64}$/.test(val)) {
               const cand = extractPelicanNumber(val) ?? (val.length === 14 ? val : null);
-              if (cand) {
-                URL.revokeObjectURL(url);
-                stopCamera();
-                onDetected(cand);
-                return;
-              }
+              if (cand) { URL.revokeObjectURL(url); stopCamera(); onDetected(cand); return; }
             }
           }
         }
@@ -365,10 +400,7 @@ export default function PelicanScanner({ onDetected }: Props) {
       const text = await ocrImageSrc(url);
       URL.revokeObjectURL(url);
       const candidate = extractPelicanNumber(text);
-      if (candidate) {
-        stopCamera();
-        onDetected(candidate);
-      }
+      if (candidate) { stopCamera(); onDetected(candidate); }
     } catch {
       URL.revokeObjectURL(url);
     }
@@ -407,19 +439,25 @@ export default function PelicanScanner({ onDetected }: Props) {
         <div className="pelican-starting" aria-hidden="true">Starting camera…</div>
       )}
 
+      {!starting && !needsGesture && !cameraError && (
+        <button
+          type="button"
+          className={`pelican-manual ${capturing ? "pelican-manual--active" : ""}`}
+          onClick={() => void handleManualCapture()}
+          disabled={capturing}
+          aria-label="Capture now"
+        >
+          <Scan size={18} /> {capturing ? "Scanning…" : "Capture"}
+        </button>
+      )}
+
       <div className="pelican-fallback">
         <button type="button" className="button button--secondary pelican-upload" onClick={() => fileInputRef.current?.click()}>
           <ImageUp size={16} /> Upload image
         </button>
-        {cameraError && <span className="pelican-fallback__note">Camera unavailable — upload a photo of the Pelican screen.</span>}
+        {cameraError && <span className="pelican-fallback__note">Camera unavailable — upload a photo.</span>}
         <input ref={fileInputRef} type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => void onImageSelected(e)} />
       </div>
     </div>
   );
-}
-
-async function ocrImageSrc(src: string): Promise<string> {
-  const w = await getWorker();
-  const { data } = await w.recognize(src);
-  return data.text ?? "";
 }
