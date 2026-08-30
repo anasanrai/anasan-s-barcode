@@ -1,7 +1,8 @@
-import { Flashlight, ImageUp, Camera, Scan } from "lucide-react";
+import { Flashlight, ImageUp, Camera, Scan, RotateCcw, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { extractPelicanNumber, FrameConfirmation } from "@/lib/pelican";
 import { useLang } from "@/lib/i18n";
+import BarcodePreview from "./BarcodePreview";
 
 type Props = { onDetected: (value: string) => void };
 
@@ -236,6 +237,7 @@ export default function PelicanScanner({ onDetected }: Props) {
   const [cameraError, setCameraError] = useState(false);
   const [capturing, setCapturing] = useState(false);
   const [captureError, setCaptureError] = useState(false);
+  const [scannedBarcode, setScannedBarcode] = useState<string | null>(null);
 
   const onDetectedRef = useRef(onDetected);
   onDetectedRef.current = onDetected;
@@ -308,6 +310,12 @@ export default function PelicanScanner({ onDetected }: Props) {
     return off;
   }, []);
 
+  const handleMatchFound = useCallback((cand: string) => {
+    stopCamera();
+    onDetectedRef.current(cand);
+    setScannedBarcode(cand);
+  }, [stopCamera]);
+
   const startAutoLoop = useCallback(() => {
     if (timerRef.current) window.clearInterval(timerRef.current);
     timerRef.current = window.setInterval(async () => {
@@ -320,8 +328,7 @@ export default function PelicanScanner({ onDetected }: Props) {
         if (cand) {
           const confirmed = confirmRef.current.push(cand);
           if (confirmed) {
-            stopCamera();
-            onDetectedRef.current(confirmed);
+            handleMatchFound(confirmed);
             return;
           }
         }
@@ -329,7 +336,7 @@ export default function PelicanScanner({ onDetected }: Props) {
         busyRef.current = false;
       }
     }, 280);
-  }, [captureCrop, stopCamera]);
+  }, [captureCrop, handleMatchFound]);
 
   // Manual Capture button handler: instant shutter, scans crop + full frame in parallel
   const handleManualCapture = useCallback(async () => {
@@ -363,8 +370,7 @@ export default function PelicanScanner({ onDetected }: Props) {
       }
 
       if (cand) {
-        stopCamera();
-        onDetectedRef.current(cand);
+        handleMatchFound(cand);
         return;
       }
 
@@ -373,8 +379,8 @@ export default function PelicanScanner({ onDetected }: Props) {
       window.setTimeout(() => setCaptureError(false), 2000);
     } finally {
       setCapturing(false);
-      // If camera is still active, resume auto scanning
-      if (streamRef.current) {
+      // If camera is still active and no barcode was scanned, resume auto scanning
+      if (streamRef.current && !scannedBarcode) {
         window.setTimeout(() => {
           if (!streamRef.current || timerRef.current) return;
           busyRef.current = false;
@@ -382,12 +388,13 @@ export default function PelicanScanner({ onDetected }: Props) {
         }, 300);
       }
     }
-  }, [capturing, captureCrop, captureFull, startAutoLoop, stopCamera]);
+  }, [capturing, captureCrop, captureFull, handleMatchFound, scannedBarcode, startAutoLoop]);
 
   const startCamera = useCallback(async () => {
     setCameraError(false);
     setNeedsGesture(false);
     setStarting(true);
+    setScannedBarcode(null);
     stopCamera();
     confirmRef.current = new FrameConfirmation(1);
 
@@ -439,6 +446,12 @@ export default function PelicanScanner({ onDetected }: Props) {
     }
   }, [stopCamera, startAutoLoop]);
 
+  const handleScanNext = () => {
+    setScannedBarcode(null);
+    setCaptureError(false);
+    void startCamera();
+  };
+
   useEffect(() => {
     void startCamera();
     return () => stopCamera();
@@ -473,8 +486,7 @@ export default function PelicanScanner({ onDetected }: Props) {
             const cand = extractPelicanNumber(val) ?? (/^\d{8,24}$/.test(val) ? val : null);
             if (cand) {
               URL.revokeObjectURL(url);
-              stopCamera();
-              onDetected(cand);
+              handleMatchFound(cand);
               return;
             }
           }
@@ -484,8 +496,7 @@ export default function PelicanScanner({ onDetected }: Props) {
       URL.revokeObjectURL(url);
       const candidate = extractPelicanNumber(text);
       if (candidate) {
-        stopCamera();
-        onDetected(candidate);
+        handleMatchFound(candidate);
       }
     } catch {
       URL.revokeObjectURL(url);
@@ -504,60 +515,96 @@ export default function PelicanScanner({ onDetected }: Props) {
       <video ref={videoRef} autoPlay muted playsInline className="pelican-video" />
       <canvas ref={canvasRef} className="pelican-canvas" aria-hidden="true" />
 
-      <div className="pelican-overlay" aria-hidden="true">
-        <div className="pelican-rect" />
-        <p className="pelican-hint">{t.pointAtBarcode}</p>
-      </div>
-
-      {torchSupported && !needsGesture && (
-        <button
-          type="button"
-          className={`pelican-torch ${torchError ? "pelican-torch--error" : ""}`}
-          onClick={() => void toggleTorch()}
-          aria-label="Toggle flash"
-        >
-          <Flashlight size={16} /> {torchError ? t.flashUnavailable : torchOn ? t.flashOn : t.flashOff}
-        </button>
-      )}
-
-      {needsGesture && (
-        <button type="button" className="pelican-tap" onClick={handleGestureTap}>
-          <Camera size={22} /> {t.tapToStart}
-        </button>
-      )}
-
-      {starting && !needsGesture && !cameraError && (
-        <div className="pelican-starting" aria-hidden="true">
-          {t.startingCamera}
-        </div>
-      )}
-
-      {!starting && !needsGesture && !cameraError && (
+      {!scannedBarcode && (
         <>
-          <button
-            type="button"
-            className={`pelican-manual ${capturing ? "pelican-manual--active" : ""}`}
-            onClick={() => void handleManualCapture()}
-            disabled={capturing}
-            aria-label="Capture now"
-          >
-            <Scan size={18} /> {capturing ? t.capturing : t.capture}
-          </button>
-          {captureError && (
-            <div className="pelican-capture-error" role="status" aria-live="polite">
-              {t.captureRetry}
+          <div className="pelican-overlay" aria-hidden="true">
+            <div className="pelican-rect" />
+            <p className="pelican-hint">{t.pointAtBarcode}</p>
+          </div>
+
+          {torchSupported && !needsGesture && (
+            <button
+              type="button"
+              className={`pelican-torch ${torchError ? "pelican-torch--error" : ""}`}
+              onClick={() => void toggleTorch()}
+              aria-label="Toggle flash"
+            >
+              <Flashlight size={16} /> {torchError ? t.flashUnavailable : torchOn ? t.flashOn : t.flashOff}
+            </button>
+          )}
+
+          {needsGesture && (
+            <button type="button" className="pelican-tap" onClick={handleGestureTap}>
+              <Camera size={22} /> {t.tapToStart}
+            </button>
+          )}
+
+          {starting && !needsGesture && !cameraError && (
+            <div className="pelican-starting" aria-hidden="true">
+              {t.startingCamera}
             </div>
           )}
+
+          {!starting && !needsGesture && !cameraError && (
+            <>
+              <button
+                type="button"
+                className={`pelican-manual ${capturing ? "pelican-manual--active" : ""}`}
+                onClick={() => void handleManualCapture()}
+                disabled={capturing}
+                aria-label="Capture now"
+              >
+                <Scan size={18} /> {capturing ? t.capturing : t.capture}
+              </button>
+              {captureError && (
+                <div className="pelican-capture-error" role="status" aria-live="polite">
+                  {t.captureRetry}
+                </div>
+              )}
+            </>
+          )}
+
+          <div className="pelican-fallback">
+            <button type="button" className="button button--secondary pelican-upload" onClick={() => fileInputRef.current?.click()}>
+              <ImageUp size={16} /> {t.uploadImage}
+            </button>
+            {cameraError && <span className="pelican-fallback__note">{t.cameraUnavailable}</span>}
+            <input ref={fileInputRef} type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => void onImageSelected(e)} />
+          </div>
         </>
       )}
 
-      <div className="pelican-fallback">
-        <button type="button" className="button button--secondary pelican-upload" onClick={() => fileInputRef.current?.click()}>
-          <ImageUp size={16} /> {t.uploadImage}
-        </button>
-        {cameraError && <span className="pelican-fallback__note">{t.cameraUnavailable}</span>}
-        <input ref={fileInputRef} type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => void onImageSelected(e)} />
-      </div>
+      {/* In-place Scannable Barcode Overlay inside Scanner */}
+      {scannedBarcode && (
+        <div className="scanner-result-overlay" role="dialog" aria-label={t.scanResult}>
+          <div className="scanner-result-card">
+            <div className="scanner-result-card__header">
+              <span className="scanner-result-card__badge">{t.scanResult}</span>
+              <button
+                type="button"
+                className="scanner-result-card__close"
+                onClick={handleScanNext}
+                aria-label="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="scanner-result-card__barcode">
+              <BarcodePreview value={scannedBarcode} format="CODE128" onError={() => {}} />
+            </div>
+
+            <button
+              type="button"
+              className="scanner-result-card__btn-next"
+              onClick={handleScanNext}
+            >
+              <RotateCcw size={18} />
+              <span>{t.scanNext}</span>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

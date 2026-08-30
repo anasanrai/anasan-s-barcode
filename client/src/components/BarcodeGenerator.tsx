@@ -37,7 +37,10 @@ export default function BarcodeGenerator({ initialValue = "", onScan }: Props) {
   const displayValue = input.length > 0 ? (resolvedNumber || input) : "";
 
   const handleNumberSubmit = () => {
-    if (!displayValue) { setError(t.notReady); return; }
+    if (!displayValue) {
+      setError(t.notReady);
+      return;
+    }
     setError("");
     addNumber(displayValue);
   };
@@ -67,13 +70,16 @@ export default function BarcodeGenerator({ initialValue = "", onScan }: Props) {
       </div>
 
       {mode === "barcode" && (
-        <div className="generator__formats">
+        <div className="generator__formats-scroll">
           {FORMAT_OPTIONS.map((f) => (
             <button
               key={f}
               type="button"
               className={`generator__format-btn ${format === f ? "generator__format-btn--active" : ""}`}
-              onClick={() => { setFormat(f); setError(""); }}
+              onClick={() => {
+                setFormat(f);
+                setError("");
+              }}
             >
               {FORMAT_CONFIG[f].label}
             </button>
@@ -81,13 +87,12 @@ export default function BarcodeGenerator({ initialValue = "", onScan }: Props) {
         </div>
       )}
 
-      {mode === "barcode" && (
-        <p className="generator__format-desc">{FORMAT_CONFIG[format].description}</p>
-      )}
-
       <NumberInput
         value={input}
-        onChange={(v) => { setInput(v); setError(""); }}
+        onChange={(v) => {
+          setInput(v);
+          setError("");
+        }}
         onSubmit={handleNumberSubmit}
         findMatch={findMatch}
         format={format}
@@ -110,7 +115,6 @@ export default function BarcodeGenerator({ initialValue = "", onScan }: Props) {
               onError={(msg) => setError(msg)}
             />
           )}
-          <p className="generator__number">{displayValue}</p>
         </div>
       )}
 

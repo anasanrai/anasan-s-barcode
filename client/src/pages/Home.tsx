@@ -32,7 +32,6 @@ export default function Home() {
     (value: string) => {
       addNumber(value);
       setDetectedNumber(value);
-      setScreen("generate");
     },
     [addNumber],
   );
