@@ -1,6 +1,6 @@
 import { Flashlight, ImageUp, Camera, Scan, RotateCcw, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { extractPelicanNumber, FrameConfirmation } from "@/lib/pelican";
+import { detectBarcodeFormat, extractPelicanNumber, FrameConfirmation, validateBarcode, type BarcodeFormat } from "@/lib/pelican";
 import { useLang } from "@/lib/i18n";
 import BarcodePreview from "./BarcodePreview";
 
@@ -184,7 +184,7 @@ async function scanCanvas(canvas: HTMLCanvasElement, timeoutMs = 1800): Promise<
       for (const b of barcodes) {
         const val = (b.rawValue ?? "").trim();
         const cand = extractPelicanNumber(val) ?? (/^\d{8,24}$/.test(val) ? val : null);
-        if (cand) return cand;
+        if (cand && validateBarcode(cand).valid) return cand;
       }
     }
   } catch {}
@@ -223,7 +223,7 @@ export default function PelicanScanner({ onDetected }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const confirmRef = useRef(new FrameConfirmation(1));
+  const confirmRef = useRef(new FrameConfirmation(3));
   const busyRef = useRef(false);
   const timerRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -328,6 +328,10 @@ export default function PelicanScanner({ onDetected }: Props) {
         if (cand) {
           const confirmed = confirmRef.current.push(cand);
           if (confirmed) {
+            if (!validateBarcode(confirmed).valid) {
+              confirmRef.current.reset();
+              return;
+            }
             handleMatchFound(confirmed);
             return;
           }
@@ -369,7 +373,7 @@ export default function PelicanScanner({ onDetected }: Props) {
         cand = await scanCanvas(full, 2200);
       }
 
-      if (cand) {
+      if (cand && validateBarcode(cand).valid) {
         handleMatchFound(cand);
         return;
       }
@@ -396,7 +400,7 @@ export default function PelicanScanner({ onDetected }: Props) {
     setStarting(true);
     setScannedBarcode(null);
     stopCamera();
-    confirmRef.current = new FrameConfirmation(1);
+    confirmRef.current = new FrameConfirmation(3);
 
     if (!navigator.mediaDevices?.getUserMedia) {
       setCameraError(true);
@@ -484,7 +488,7 @@ export default function PelicanScanner({ onDetected }: Props) {
           for (const b of barcodes) {
             const val = (b.rawValue ?? "").trim();
             const cand = extractPelicanNumber(val) ?? (/^\d{8,24}$/.test(val) ? val : null);
-            if (cand) {
+            if (cand && validateBarcode(cand).valid) {
               URL.revokeObjectURL(url);
               handleMatchFound(cand);
               return;
@@ -495,7 +499,7 @@ export default function PelicanScanner({ onDetected }: Props) {
       const text = await ocrImageSrc(url);
       URL.revokeObjectURL(url);
       const candidate = extractPelicanNumber(text);
-      if (candidate) {
+      if (candidate && validateBarcode(candidate).valid) {
         handleMatchFound(candidate);
       }
     } catch {
@@ -591,7 +595,13 @@ export default function PelicanScanner({ onDetected }: Props) {
             </div>
 
             <div className="scanner-result-card__barcode">
-              <BarcodePreview value={scannedBarcode} format="CODE128" onError={() => {}} />
+              {scannedBarcode && (
+                <BarcodePreview
+                  value={scannedBarcode}
+                  format={detectBarcodeFormat(scannedBarcode)}
+                  onError={() => {}}
+                />
+              )}
             </div>
 
             <button

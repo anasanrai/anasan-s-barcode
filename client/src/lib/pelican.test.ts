@@ -1,5 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { extractPelicanNumber, FrameConfirmation } from "./pelican";
+import { extractPelicanNumber, FrameConfirmation, isValidGtin, validateBarcode } from "./pelican";
+
+describe("GTIN validation", () => {
+  it("validates correct GTIN-14", () => {
+    expect(isValidGtin("06281016003788")).toBe(true);
+  });
+  it("rejects wrong check digit", () => {
+    expect(isValidGtin("06281016003738")).toBe(false);
+  });
+  it("rejects invalid EAN-13", () => {
+    expect(isValidGtin("6281016003788")).toBe(false);
+  });
+  it("validates barcode values by length", () => {
+    expect(validateBarcode("06281016003788").valid).toBe(true);
+    expect(validateBarcode("15781512805").valid).toBe(true); // internal CODE128 length
+    expect(validateBarcode("06281016003738").valid).toBe(false);
+  });
+});
 
 describe("pelican extractor", () => {
   it("extracts 14-digit after Barcodes label", () => {
@@ -44,6 +61,14 @@ Barcodes:
 
   it("handles Arabic and extra text noise", () => {
     expect(extractPelicanNumber("المنتج\nBarcodes:\n06281016003788\nالسعر 10")).toBe("06281016003788");
+  });
+
+  it("rejects a 14-digit with wrong check digit", () => {
+    expect(extractPelicanNumber("Barcodes:\n06281016003738")).toBe(null);
+  });
+
+  it("accepts non-GTIN internal CODE128 codes", () => {
+    expect(extractPelicanNumber("Barcodes:\n15781512805")).toBe("15781512805");
   });
 });
 
