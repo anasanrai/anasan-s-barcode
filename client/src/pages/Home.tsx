@@ -2,12 +2,9 @@ import { useCallback, useEffect, useState } from "react";
 import BarcodeGenerator from "@/components/BarcodeGenerator";
 import PelicanScanner from "@/components/PelicanScanner";
 import Header from "@/components/Header";
-import StarPerformerCard from "@/components/StarPerformerCard";
-import TopStoresLeaderboard from "@/components/TopStoresLeaderboard";
 import LeaderboardModal from "@/components/LeaderboardModal";
 import AdminPage from "./AdminPage";
 import { useNumberHistory } from "@/lib/useNumberHistory";
-import { useLeaderboard } from "@/lib/leaderboardStore";
 
 function useIsMobile() {
   const [mobile, setMobile] = useState(() =>
@@ -25,7 +22,9 @@ function useIsMobile() {
 
 export default function Home() {
   const isMobile = useIsMobile();
-  const [screen, setScreen] = useState<"scan" | "generate">("generate");
+  const [screen, setScreen] = useState<"scan" | "generate">(() =>
+    isMobile ? "scan" : "generate",
+  );
   const [view, setView] = useState<"app" | "admin">(() => {
     if (typeof window !== "undefined" && window.location.pathname.startsWith("/admin")) {
       return "admin";
@@ -36,7 +35,6 @@ export default function Home() {
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
 
   const { addNumber } = useNumberHistory();
-  const { starPerformer, topStores } = useLeaderboard();
 
   useEffect(() => {
     setScreen(isMobile ? "scan" : "generate");
@@ -120,7 +118,6 @@ export default function Home() {
           </main>
         )}
 
-        {/* Mobile Leaderboard Sheet Modal */}
         <LeaderboardModal
           isOpen={isLeaderboardOpen}
           onClose={() => setIsLeaderboardOpen(false)}
@@ -129,52 +126,47 @@ export default function Home() {
     );
   }
 
-  // Desktop layout (>= 1100px): 3-column layout
+  // Desktop layout (>= 1100px): centered, generator-first stage
   return (
     <div className="desktop-workspace">
-      <Header onGoToAdmin={handleOpenAdmin} />
+      <Header
+        onOpenLeaderboard={() => setIsLeaderboardOpen(true)}
+        onGoToAdmin={handleOpenAdmin}
+      />
 
-      <div className="desktop-layout">
-        {/* Left Column: Star Performer of the Week */}
-        <div className="desktop-layout__left">
-          <StarPerformerCard performer={starPerformer} />
-        </div>
-
-        {/* Center Column: Scanner or Generator */}
-        <main className="desktop-layout__center">
-          {screen === "scan" ? (
-            <div className="desktop-scanner-frame">
-              <PelicanScanner onDetected={handleDetected} />
-            </div>
-          ) : (
-            <div className="desktop-generator-frame">
-              <BarcodeGenerator initialValue={detectedNumber} />
-            </div>
-          )}
-
-          <div className="pelican-tabs pelican-tabs--desktop">
-            <button
-              type="button"
-              className={`pelican-tab ${screen === "generate" ? "pelican-tab--active" : ""}`}
-              onClick={handleGoToGenerate}
-            >
-              Generate
-            </button>
-            <button
-              type="button"
-              className={`pelican-tab ${screen === "scan" ? "pelican-tab--active" : ""}`}
-              onClick={handleGoToScan}
-            >
-              Scan
-            </button>
+      <main className="desktop-stage">
+        {screen === "scan" ? (
+          <div className="desktop-stage__scanner">
+            <PelicanScanner onDetected={handleDetected} />
           </div>
-        </main>
+        ) : (
+          <div className="desktop-stage__generator">
+            <BarcodeGenerator initialValue={detectedNumber} />
+          </div>
+        )}
+      </main>
 
-        {/* Right Column: Top 10 Performing Stores */}
-        <div className="desktop-layout__right">
-          <TopStoresLeaderboard stores={topStores} />
-        </div>
+      <div className="pelican-tabs pelican-tabs--desktop">
+        <button
+          type="button"
+          className={`pelican-tab ${screen === "generate" ? "pelican-tab--active" : ""}`}
+          onClick={handleGoToGenerate}
+        >
+          Generate
+        </button>
+        <button
+          type="button"
+          className={`pelican-tab ${screen === "scan" ? "pelican-tab--active" : ""}`}
+          onClick={handleGoToScan}
+        >
+          Scan
+        </button>
       </div>
+
+      <LeaderboardModal
+        isOpen={isLeaderboardOpen}
+        onClose={() => setIsLeaderboardOpen(false)}
+      />
     </div>
   );
 }

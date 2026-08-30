@@ -29,7 +29,7 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (pin === ADMIN_PIN || pin === "admin") {
+    if (pin === ADMIN_PIN) {
       setIsAuthenticated(true);
       setPinError("");
     } else {
@@ -40,6 +40,10 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (file.size > 512 * 1024) {
+      alert("Image must be smaller than 512 KB");
+      return;
+    }
     const reader = new FileReader();
     reader.onload = () => {
       const b64 = reader.result as string;
@@ -62,7 +66,7 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
     setTimeout(() => setSaveSuccess(false), 2500);
   };
 
-  const handleStoreChange = (index: number, field: keyof StoreLeaderboardItem, value: any) => {
+  const handleStoreChange = (index: number, field: keyof StoreLeaderboardItem, value: string | number) => {
     setStoresForm((prev) => {
       const next = [...prev];
       next[index] = { ...next[index], [field]: value };

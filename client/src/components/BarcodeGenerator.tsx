@@ -10,10 +10,9 @@ const FORMAT_OPTIONS = Object.keys(FORMAT_CONFIG) as BarcodeFormat[];
 
 type Props = {
   initialValue?: string;
-  onScan?: () => void;
 };
 
-export default function BarcodeGenerator({ initialValue = "", onScan }: Props) {
+export default function BarcodeGenerator({ initialValue = "" }: Props) {
   const { t } = useLang();
   const [input, setInput] = useState(initialValue);
   const [format, setFormat] = useState<BarcodeFormat>("CODE128");

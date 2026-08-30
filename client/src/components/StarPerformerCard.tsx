@@ -1,5 +1,6 @@
 import { Award, Crown, MapPin, Sparkles, Star, Trophy } from "lucide-react";
 import type { StarPerformer } from "@/lib/leaderboardStore";
+import { useLang } from "@/lib/i18n";
 
 interface Props {
   performer: StarPerformer;
@@ -7,6 +8,7 @@ interface Props {
 }
 
 export default function StarPerformerCard({ performer, className = "" }: Props) {
+  const { t } = useLang();
   return (
     <aside className={`star-performer-card ${className}`} aria-label="Star of the Week">
       <div className="star-performer-card__glow" />
@@ -72,7 +74,7 @@ export default function StarPerformerCard({ performer, className = "" }: Props) 
       {/* Bottom Tagline */}
       <div className="star-performer-card__footer">
         <Award size={14} />
-        <span>KEEP SHINING • KEEP LEADING</span>
+        <span>{t.starFooter.toUpperCase()}</span>
       </div>
     </aside>
   );

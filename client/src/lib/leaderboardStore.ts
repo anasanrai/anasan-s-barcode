@@ -7,7 +7,6 @@ export interface StarPerformer {
   weekLabel: string;
   imageUrl?: string;
   quote: string;
-  subQuote?: string;
   badgeTitle: string;
 }
 
@@ -36,7 +35,6 @@ export const DEFAULT_LEADERBOARD: LeaderboardState = {
     weekLabel: "Star of the Week",
     imageUrl: "",
     quote: "Champions aren't born, they are made by hard work, focus and heart.",
-    subQuote: "Thank you for your outstanding contribution!",
     badgeTitle: "HungerStation Market",
   },
   topStores: [

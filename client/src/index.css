@@ -984,50 +984,64 @@ html[dir="rtl"] .number-input__actions {
 }
 .hs-admin-btn:hover { color: var(--color-text); background: rgba(255,255,255,0.1); }
 
-/* ——— Desktop 3-Column Workspace ——— */
+/* ——— Desktop Centered Workspace ——— */
 .desktop-workspace {
   min-height: 100vh; min-height: 100dvh;
   background: var(--color-bg);
   display: flex; flex-direction: column;
+  position: relative;
 }
-.desktop-layout {
-  display: grid;
-  grid-template-columns: 340px 1fr 340px;
-  gap: 24px;
-  max-width: 1280px;
-  width: 100%;
-  margin: 0 auto;
-  padding: 80px 24px calc(80px + env(safe-area-inset-bottom));
+.desktop-stage {
   flex: 1;
-  align-items: start;
+  display: flex; align-items: center; justify-content: center;
+  padding: calc(70px + env(safe-area-inset-top)) 24px calc(90px + env(safe-area-inset-bottom));
 }
-.desktop-layout__left,
-.desktop-layout__right {
-  position: sticky; top: 80px;
-  max-height: calc(100dvh - 100px);
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-border) transparent;
+.desktop-stage__generator {
+  width: 100%; max-width: 720px;
 }
-.desktop-layout__center {
-  display: flex; flex-direction: column; align-items: center;
-  gap: 18px;
-  min-height: 520px;
+.desktop-stage__generator .generator {
+  max-width: 680px;
+  padding: 18px 24px 28px;
+  gap: 16px;
 }
-.desktop-scanner-frame {
-  width: 100%; max-width: 520px;
-  height: 620px;
+.desktop-stage__generator .generator__title {
+  font-size: 32px;
+}
+.desktop-stage__generator .generator__barcode {
+  max-width: 100%;
+  padding: 24px 20px 16px;
+}
+.desktop-stage__generator .generator__barcode .barcode-art > svg {
+  height: clamp(140px, 14vw, 220px) !important;
+}
+.desktop-stage__generator .qr-svg-wrap svg,
+.desktop-stage__generator .qr-placeholder {
+  width: clamp(180px, 18vw, 280px) !important;
+  height: clamp(180px, 18vw, 280px) !important;
+}
+.desktop-stage__scanner {
+  width: 100%; max-width: 640px;
+  height: min(620px, calc(100dvh - 180px));
   border-radius: var(--radius-lg);
   overflow: hidden;
   position: relative;
   background: #000;
   border: 1px solid var(--color-border);
 }
-.desktop-generator-frame {
-  width: 100%; max-width: 560px;
-}
-@media (max-width: 1250px) {
-  .desktop-layout { grid-template-columns: 300px 1fr 300px; gap: 16px; }
+
+/* Leaderboard modal on desktop: centered card instead of full-width sheet */
+@media (min-width: 1100px) {
+  .leaderboard-modal-overlay {
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .leaderboard-modal-sheet {
+    width: min(420px, 100%);
+    max-height: min(720px, calc(100dvh - 48px));
+    border-radius: var(--radius-lg);
+    animation: overlay-pop 0.25s var(--ease-spring);
+  }
 }
 
 /* ——— Star Performer Card ——— */
