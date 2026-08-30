@@ -5,15 +5,15 @@
 :root {
   --font-display: "Space Grotesk", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", "DM Mono", monospace;
-  --color-bg: #050508;
-  --color-surface: #0c0c12;
-  --color-surface-raised: #14141e;
-  --color-border: rgba(255, 255, 255, 0.06);
-  --color-text: #e8eaed;
-  --color-text-muted: #717680;
-  --color-accent: #22d3ee;
-  --color-accent-dim: rgba(34, 211, 238, 0.12);
-  --color-accent-glow: rgba(34, 211, 238, 0.25);
+  --color-bg: #1A0F0A;
+  --color-surface: #231612;
+  --color-surface-raised: #2C1C16;
+  --color-border: rgba(251, 239, 0, 0.08);
+  --color-text: #FBEF00;
+  --color-text-muted: #C4A882;
+  --color-accent: #FBEF00;
+  --color-accent-dim: rgba(251, 239, 0, 0.12);
+  --color-accent-glow: rgba(251, 239, 0, 0.25);
   --color-success: #34d399;
   --color-error: #f87171;
   --radius-sm: 8px;
@@ -61,8 +61,8 @@ button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparen
   border-radius: var(--radius-lg);
   box-shadow:
     0 0 0 9999px rgba(0, 0, 0, 0.5),
-    inset 0 0 60px rgba(34, 211, 238, 0.04),
-    0 0 80px rgba(34, 211, 238, 0.06);
+    inset 0 0 60px rgba(251, 239, 0, 0.04),
+    0 0 80px rgba(251, 239, 0, 0.06);
   position: relative;
   backdrop-filter: blur(0.5px);
 }
@@ -185,7 +185,7 @@ button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparen
   background: var(--color-accent);
   color: var(--color-bg);
   font-size: 15px; font-weight: 700;
-  box-shadow: 0 4px 24px rgba(34, 211, 238, 0.35), 0 0 0 1px rgba(34, 211, 238, 0.2);
+  box-shadow: 0 4px 24px rgba(251, 239, 0, 0.35), 0 0 0 1px rgba(251, 239, 0, 0.2);
   transition: all 0.15s var(--ease-spring);
 }
 .pelican-manual:active { transform: translateX(-50%) scale(0.94); }
@@ -403,15 +403,15 @@ button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparen
 
 .generator {
   width: 100%; max-width: 560px;
-  padding: 32px 24px;
-  display: flex; flex-direction: column; align-items: center; gap: 20px;
+  padding: 20px 24px;
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
 }
 .generator__header { text-align: center; }
 .generator__title {
   font-family: var(--font-display);
-  font-size: 28px; font-weight: 700;
+  font-size: 24px; font-weight: 700;
   color: var(--color-text);
-  margin: 0 0 6px;
+  margin: 0 0 4px;
   letter-spacing: -0.02em;
 }
 .generator__subtitle {
@@ -444,14 +444,14 @@ button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparen
 /* QR preview */
 .qr-art { display: flex; flex-direction: column; align-items: center; }
 .qr-svg-wrap svg {
-  width: clamp(200px, 50vw, 280px) !important;
-  height: clamp(200px, 50vw, 280px) !important;
+  width: clamp(160px, 40vw, 240px) !important;
+  height: clamp(160px, 40vw, 240px) !important;
   display: block;
   border-radius: var(--radius-md);
 }
 .qr-placeholder {
-  width: clamp(200px, 50vw, 280px);
-  height: clamp(200px, 50vw, 280px);
+  width: clamp(160px, 40vw, 240px);
+  height: clamp(160px, 40vw, 240px);
   display: flex; align-items: center; justify-content: center;
   border: 1.5px dashed rgba(255, 255, 255, 0.1);
   border-radius: var(--radius-md);
@@ -495,9 +495,9 @@ button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparen
 .number-input {
   flex: 1;
   font-family: var(--font-mono);
-  font-size: 20px; font-weight: 600;
+  font-size: 18px; font-weight: 600;
   letter-spacing: 0.08em;
-  padding: 14px 18px;
+  padding: 12px 16px;
   border-radius: var(--radius-md);
   border: 1.5px solid rgba(255, 255, 255, 0.1);
   background: var(--color-surface);
@@ -513,7 +513,7 @@ button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparen
   letter-spacing: 0.06em;
   padding: 10px 16px;
   border-radius: var(--radius-md);
-  border: 1.5px solid rgba(34, 211, 238, 0.3);
+  border: 1.5px solid rgba(251, 239, 0, 0.3);
   background: var(--color-accent-dim);
   color: var(--color-accent);
   white-space: nowrap;
@@ -551,47 +551,47 @@ button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparen
 .generator__barcode {
   width: 100%;
   background: var(--color-surface);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(251, 239, 0, 0.06);
   border-radius: var(--radius-lg);
-  padding: 20px 16px 16px;
+  padding: 16px 14px 12px;
   display: flex; flex-direction: column; align-items: center;
 }
 .generator__barcode .barcode-art svg {
   width: 100% !important; max-height: none !important;
-  height: clamp(140px, 30vw, 220px) !important;
+  height: clamp(100px, 22vw, 160px) !important;
   display: block;
 }
 .barcode-meta {
-  display: flex; align-items: center; justify-content: center; gap: 10px;
-  margin-top: 10px; width: 100%;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  margin-top: 6px; width: 100%;
 }
 .barcode-caption {
   font-family: var(--font-mono);
-  font-size: 12px; font-weight: 600;
+  font-size: 11px; font-weight: 600;
   letter-spacing: 0.12em;
   color: var(--color-text-muted);
 }
 .barcode-validity {
-  display: inline-flex; align-items: center; gap: 4px;
-  font-size: 11px; font-weight: 600;
-  padding: 3px 8px; border-radius: var(--radius-pill);
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 10px; font-weight: 600;
+  padding: 2px 7px; border-radius: var(--radius-pill);
 }
 .barcode-validity--ok { color: var(--color-success); background: rgba(52, 211, 153, 0.1); }
 .barcode-validity--err { color: var(--color-error); background: rgba(248, 113, 113, 0.1); }
 .barcode-actions {
-  display: flex; gap: 8px; margin-top: 10px;
+  display: flex; gap: 6px; margin-top: 6px;
 }
 .barcode-download {
-  display: inline-flex; align-items: center; gap: 5px;
-  font-size: 12px; font-weight: 600;
-  padding: 7px 14px; border-radius: var(--radius-pill);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 600;
+  padding: 6px 12px; border-radius: var(--radius-pill);
+  border: 1px solid rgba(251, 239, 0, 0.08);
   background: var(--color-surface-raised);
   color: var(--color-text-muted);
   transition: all 0.15s var(--ease-out);
 }
 .barcode-download:active { transform: scale(0.95); }
-.barcode-download:hover { color: var(--color-text); border-color: rgba(255, 255, 255, 0.15); }
+.barcode-download:hover { color: var(--color-text); border-color: rgba(251, 239, 0, 0.15); }
 .generator__number {
   font-family: var(--font-mono);
   font-size: 13px; font-weight: 600;

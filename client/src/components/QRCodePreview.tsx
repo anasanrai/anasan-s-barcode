@@ -17,7 +17,7 @@ export default function QRCodePreview({ value, onError }: Props) {
       type: "svg",
       width: 280,
       margin: 2,
-      color: { dark: "#07111f", light: "#ffffff" },
+      color: { dark: "#1A0F0A", light: "#FBEF00" },
       errorCorrectionLevel: "M",
     })
       .then((svg) => setSvgHtml(svg))
@@ -30,7 +30,7 @@ export default function QRCodePreview({ value, onError }: Props) {
     QRCode.toCanvas(canvas, value, {
       width: 560,
       margin: 4,
-      color: { dark: "#07111f", light: "#ffffff" },
+      color: { dark: "#1A0F0A", light: "#FBEF00" },
       errorCorrectionLevel: "M",
     })
       .then(() => {

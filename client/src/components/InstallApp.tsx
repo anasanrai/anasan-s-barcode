@@ -61,7 +61,7 @@ export default function InstallApp() {
         <Download size={15} /> {label}
       </button>
       {showGuide && (
-        <section className="install-sheet" role="dialog" aria-label="Install Pelican Barcode">
+        <section className="install-sheet" role="dialog" aria-label="Install HungerTag">
           <button type="button" className="install-sheet__close" onClick={() => setShowGuide(false)} aria-label="Close"><X size={16} /></button>
           {mode === "ios-guide" ? (
             <>

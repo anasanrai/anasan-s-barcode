@@ -33,8 +33,8 @@ export default function BarcodeGenerator({ onScan }: Props) {
   return (
     <div className="generator">
       <div className="generator__header">
-        <h1 className="generator__title">Pelican Barcode</h1>
-        <p className="generator__subtitle">Generate barcodes and QR codes instantly.</p>
+        <h1 className="generator__title">HungerTag</h1>
+        <p className="generator__subtitle">Scan. Generate. Done.</p>
       </div>
 
       <div className="generator__mode-switch">

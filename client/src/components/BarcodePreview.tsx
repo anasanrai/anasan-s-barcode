@@ -42,8 +42,8 @@ const BarcodePreview = forwardRef<BarcodePreviewHandle, BarcodePreviewProps>(fun
     try {
       JsBarcode(svgRef.current, value, {
         format,
-        lineColor: lineColor ?? "#07111f",
-        background: background ?? "#ffffff",
+        lineColor: lineColor ?? "#1A0F0A",
+        background: background ?? "#FBEF00",
         width: width ?? 2.15,
         height: height ?? 126,
         margin: 12,
