@@ -75,7 +75,12 @@ export function extractPelicanNumber(ocrText: string): string | null {
 export class FrameConfirmation {
   private last: string | null = null;
   private count = 0;
-  constructor(private requiredFrames = 1) {}
+  private requiredFrames: number;
+
+  constructor(requiredFrames = 1) {
+    this.requiredFrames = requiredFrames;
+  }
+
   push(value: string | null): string | null {
     if (!value) {
       this.last = null;
