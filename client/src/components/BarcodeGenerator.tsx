@@ -117,12 +117,6 @@ export default function BarcodeGenerator({ initialValue = "", onScan }: Props) {
           )}
         </div>
       )}
-
-      {onScan && (
-        <button type="button" className="generator__switch" onClick={onScan}>
-          {t.switchToScanner}
-        </button>
-      )}
     </div>
   );
 }

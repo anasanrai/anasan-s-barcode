@@ -1,4 +1,4 @@
-import { Globe, Download, Share2, X } from "lucide-react";
+import { Download, Globe, Settings, Share2, Trophy, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getInstallMode, isIosUserAgent, isStandaloneDisplay, type InstallMode } from "@/lib/install";
 import { useLang } from "@/lib/i18n";
@@ -9,7 +9,12 @@ type DeferredPrompt = Event & {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 };
 
-export default function Header() {
+interface Props {
+  onOpenLeaderboard?: () => void;
+  onGoToAdmin?: () => void;
+}
+
+export default function Header({ onOpenLeaderboard, onGoToAdmin }: Props) {
   const { lang, t, toggle } = useLang();
   const { toggle: toggleTheme } = useTheme();
   const [deferred, setDeferred] = useState<DeferredPrompt | null>(() => {
@@ -82,6 +87,19 @@ export default function Header() {
       </button>
 
       <div className="hs-header__actions">
+        {onOpenLeaderboard && (
+          <button
+            type="button"
+            className="hs-leaderboard-btn"
+            onClick={onOpenLeaderboard}
+            aria-label={t.leaderboard}
+            title={t.leaderboard}
+          >
+            <Trophy size={14} className="trophy-gold" />
+            <span>{t.leaderboard}</span>
+          </button>
+        )}
+
         <button type="button" className="hs-lang-btn" onClick={toggle} aria-label={`Switch to ${lang === "en" ? "Arabic" : "English"}`}>
           <Globe size={14} />
           <span>{lang === "en" ? t.ar : t.en}</span>
@@ -91,6 +109,18 @@ export default function Header() {
           <button type="button" className="hs-install-btn" onClick={() => void startInstall()}>
             <Download size={14} />
             <span>{t.install}</span>
+          </button>
+        )}
+
+        {onGoToAdmin && (
+          <button
+            type="button"
+            className="hs-admin-btn"
+            onClick={onGoToAdmin}
+            aria-label={t.admin}
+            title={t.admin}
+          >
+            <Settings size={14} />
           </button>
         )}
       </div>
