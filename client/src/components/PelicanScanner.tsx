@@ -15,8 +15,12 @@ async function getWorker(): Promise<TWorker> {
   if (workerPromise) return workerPromise;
   workerPromise = (async () => {
     const { createWorker } = await import("tesseract.js");
-    const w = (await createWorker("eng")) as unknown as TWorker;
-    // Instant-tune: whitelist digits + Barcodes chars, single block PSM (6)
+    // Use same-origin fast tessdata (client/public/tessdata) — avoids 7s CDN on first load
+    const w = (await (createWorker as any)("eng", 1, {
+      langPath: "/tessdata",
+      gzip: true,
+      cacheMethod: "write",
+    })) as unknown as TWorker;
     try {
       await w.setParameters?.({
         tessedit_char_whitelist: "0123456789Barcodes: ",
@@ -28,6 +32,8 @@ async function getWorker(): Promise<TWorker> {
   })();
   return workerPromise;
 }
+// Warm at import time — hides the one-time ~1-2s download before camera opens
+void getWorker().catch(() => {});
 async function ocrCanvas(canvas: HTMLCanvasElement): Promise<string> {
   const w = await getWorker();
   const { data } = await w.recognize(canvas);
@@ -37,6 +43,26 @@ async function ocrImageSrc(src: string): Promise<string> {
   const w = await getWorker();
   const { data } = await w.recognize(src);
   return data.text ?? "";
+}
+async function serverOcr(canvas: HTMLCanvasElement, timeoutMs = 700): Promise<string | null> {
+  try {
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.65);
+    const b64 = dataUrl.includes(",") ? dataUrl.split(",")[1] : dataUrl;
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), timeoutMs);
+    const res = await fetch("/api/ocr", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image: b64 }),
+      signal: ctrl.signal,
+    });
+    clearTimeout(t);
+    if (!res.ok) return null;
+    const j = (await res.json()) as { text?: string };
+    return j.text ?? null;
+  } catch {
+    return null;
+  }
 }
 
 // Native BarcodeDetector fast path (hardware-accelerated, instant on Android Chrome/iOS 17+)
@@ -143,11 +169,9 @@ export default function PelicanScanner({ onDetected }: Props) {
       if (caps?.torch) setTorchSupported(true);
       setStarting(false);
 
-      // Pre-warm both engines in parallel — no UI block
-      void getWorker().catch(() => {});
       void getDetector().catch(() => {});
 
-      // INSTANT sampling: 380ms, native detector first, then OCR
+      // INSTANT sampling: 260ms, native detector → server OCR → local OCR
       timerRef.current = window.setInterval(async () => {
         if (busyRef.current) return;
         const v = videoRef.current;
@@ -163,12 +187,13 @@ export default function PelicanScanner({ onDetected }: Props) {
           const sh = vh * 0.44;
           const sx = (vw - sw) / 2;
           const sy = (vh - sh) / 2;
-          const scale = 1.7;
+          const scale = 1.35;
           canvas.width = Math.round(sw * scale);
           canvas.height = Math.round(sh * scale);
           const ctx = canvas.getContext("2d", { willReadFrequently: true });
           if (!ctx) return;
           ctx.imageSmoothingEnabled = true;
+          // Downscale via JPEG for server path — keep canvas sharp for local OCR
           ctx.drawImage(v, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
 
           // 1) Native BarcodeDetector fast path (~10-30ms, hardware)
@@ -178,7 +203,6 @@ export default function PelicanScanner({ onDetected }: Props) {
               const barcodes = await detector.detect(canvas);
               for (const b of barcodes) {
                 const val = (b.rawValue ?? "").trim();
-                // Validate: digits only, keep as string
                 if (/^\d{8,64}$/.test(val)) {
                   const cand = extractPelicanNumber(val) ?? (val.length === 14 ? val : null);
                   if (cand) {
@@ -194,8 +218,21 @@ export default function PelicanScanner({ onDetected }: Props) {
             }
           } catch {}
 
-          // 2) OCR instant path
-          const text = await ocrCanvas(canvas);
+          // 2) Server OCR instant path (~150-400ms, no client model download)
+          let text: string | null = await serverOcr(canvas, 650);
+          // 3) Local OCR fallback (uses pre-warmed worker, ~300-600ms after first load)
+          if (text == null) {
+            // If server unavailable, use local; if worker not ready yet, skip frame to avoid queue
+            try {
+              text = await Promise.race([
+                ocrCanvas(canvas),
+                new Promise<string | null>((_, rej) => setTimeout(() => rej(new Error("t")), 900)),
+              ]) as string | null;
+            } catch {
+              return;
+            }
+          }
+          if (text == null) return;
           const candidate = extractPelicanNumber(text);
           const confirmed = confirmRef.current.push(candidate);
           if (confirmed) {
@@ -206,7 +243,7 @@ export default function PelicanScanner({ onDetected }: Props) {
         } finally {
           busyRef.current = false;
         }
-      }, 380);
+      }, 260);
     } catch (err) {
       const name = (err as DOMException)?.name ?? "";
       if (name === "NotAllowedError") setNeedsGesture(true);
