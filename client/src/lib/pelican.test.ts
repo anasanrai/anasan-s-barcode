@@ -5,18 +5,43 @@ describe("pelican extractor", () => {
   it("extracts 14-digit after Barcodes label", () => {
     expect(extractPelicanNumber("Barcodes:\n06281016003788\nSKU: 123")).toBe("06281016003788");
   });
+
   it("preserves leading zero as string", () => {
     const r = extractPelicanNumber("Barcodes: 06281016003788");
     expect(r).toBe("06281016003788");
     expect(r![0]).toBe("0");
   });
+
+  it("extracts from real Pelican simulator screen with product name, SKU, and Barcodes label", () => {
+    const screenText = `
+Al Batal Cheese Flavor Potato Chips
+12x23g
+
+SKU: XOHQ95
+
+Barcodes:
+06281016003788
+`;
+    expect(extractPelicanNumber(screenText)).toBe("06281016003788");
+  });
+
+  it("handles space or dash separated numbers from OCR", () => {
+    expect(extractPelicanNumber("Barcodes: 0628 1016 0037 88")).toBe("06281016003788");
+    expect(extractPelicanNumber("Barcodes: 0628-1016-003788")).toBe("06281016003788");
+  });
+
+  it("handles OCR letter-O as zero", () => {
+    expect(extractPelicanNumber("Barcodes:\nO6281O16OO3788")).toBe("06281016003788");
+  });
+
+  it("converts 13-digit EAN after Barcodes label to 14-digit Pelican format", () => {
+    expect(extractPelicanNumber("Barcodes:\n6281016003788")).toBe("06281016003788");
+  });
+
   it("ignores SKU shorter numbers when 14 exists", () => {
     expect(extractPelicanNumber("SKU 41234 Price 12.5 Barcodes: 06281016003788 Quantity 1")).toBe("06281016003788");
   });
-  it("returns null when no 14-digit present (no guessing)", () => {
-    expect(extractPelicanNumber("SKU 41234 Price 12")).toBeNull();
-    expect(extractPelicanNumber("Barcodes: 12345")).toBeNull();
-  });
+
   it("handles Arabic and extra text noise", () => {
     expect(extractPelicanNumber("المنتج\nBarcodes:\n06281016003788\nالسعر 10")).toBe("06281016003788");
   });

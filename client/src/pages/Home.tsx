@@ -21,6 +21,7 @@ function useIsMobile() {
 export default function Home() {
   const isMobile = useIsMobile();
   const [screen, setScreen] = useState<"scan" | "generate">("generate");
+  const [detectedNumber, setDetectedNumber] = useState("");
   const { addNumber } = useNumberHistory();
 
   useEffect(() => {
@@ -28,11 +29,17 @@ export default function Home() {
   }, [isMobile]);
 
   const handleDetected = useCallback(
-    (value: string) => { addNumber(value); },
+    (value: string) => {
+      addNumber(value);
+      setDetectedNumber(value);
+      setScreen("generate");
+    },
     [addNumber],
   );
 
-  const handleGoToScan = () => setScreen("scan");
+  const handleGoToScan = () => {
+    setScreen("scan");
+  };
   const handleGoToGenerate = () => setScreen("generate");
 
   if (isMobile) {
@@ -50,7 +57,7 @@ export default function Home() {
         {screen === "generate" && (
           <main className="pelican-app pelican-app--generator">
             <Header />
-            <BarcodeGenerator onScan={handleGoToScan} />
+            <BarcodeGenerator initialValue={detectedNumber} onScan={handleGoToScan} />
             <div className="pelican-tabs">
               <button type="button" className="pelican-tab" onClick={handleGoToScan}>Scan</button>
               <button type="button" className="pelican-tab pelican-tab--active">Generate</button>
@@ -77,7 +84,7 @@ export default function Home() {
   return (
     <main className="pelican-app pelican-app--generator">
       <Header />
-      <BarcodeGenerator onScan={handleGoToScan} />
+      <BarcodeGenerator initialValue={detectedNumber} onScan={handleGoToScan} />
       <div className="pelican-tabs pelican-tabs--desktop">
         <button type="button" className="pelican-tab pelican-tab--active">Generate</button>
         <button type="button" className="pelican-tab" onClick={handleGoToScan}>Scan</button>

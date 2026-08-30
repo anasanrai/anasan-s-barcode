@@ -39,15 +39,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (nimKey && nimUrl) {
     try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 2500);
       const r = await fetch(nimUrl, {
         method: "POST",
         headers: { Authorization: `Bearer ${nimKey}`, "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({ input: [{ type: "image_url", url: dataUrl }] }),
+        signal: ctrl.signal,
       });
-      if (r.status === 401 || r.status === 403) {
-        res.status(500).json({ error: "nvidia auth failed", status: r.status });
-        return;
-      }
+      clearTimeout(t);
       if (r.ok) {
         const j = await r.json();
         const text = extractTextFromNimResponse(j);
@@ -70,7 +70,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     };
     try {
       await w.setParameters({
-        tessedit_char_whitelist: "0123456789Barcodes: ",
+        tessedit_char_whitelist: "0123456789Barcodes:SKUabcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ -/.",
         tessedit_pageseg_mode: "6",
         classify_bln_numeric_mode: "1",
       });

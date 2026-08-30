@@ -25,6 +25,19 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 async function startServer() {
   const app = express();
   const server = createServer(app);
+
+  app.use(express.json({ limit: "10mb" }));
+
+  // Mount API endpoints for local dev
+  app.all("/api/ocr", async (req, res) => {
+    try {
+      const { default: ocrHandler } = await import("../../api/ocr");
+      await ocrHandler(req as any, res as any);
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
   // development mode uses Vite, production mode uses static files
   if (process.env.NODE_ENV === "development") {
     await setupVite(app, server);

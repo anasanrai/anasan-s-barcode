@@ -1,5 +1,12 @@
-const CACHE = "pelican-barcode-v3";
-const APP_SHELL = ["/", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png", "/tessdata/eng.traineddata.gz"];
+const CACHE = "pelican-barcode-v4";
+const APP_SHELL = [
+  "/",
+  "/manifest.json",
+  "/manifest.webmanifest",
+  "/icon-192.png",
+  "/icon-512.png",
+  "/tessdata/eng.traineddata.gz",
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

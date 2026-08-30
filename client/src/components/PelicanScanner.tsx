@@ -5,7 +5,7 @@ import { useLang } from "@/lib/i18n";
 
 type Props = { onDetected: (value: string) => void };
 
-// ── OCR Worker (singleton, lazy-loaded) ──────────────────────────────────────
+// ── OCR Worker (singleton, resilient loader) ──────────────────────────────────
 
 type TWorker = {
   recognize: (src: HTMLCanvasElement | string) => Promise<{ data: { text: string } }>;
@@ -21,14 +21,25 @@ async function getWorker(): Promise<TWorker> {
   workerPromise = (async () => {
     try {
       const { createWorker } = await import("tesseract.js");
-      const w = (await (createWorker as any)("eng", 1, {
-        langPath: "/tessdata",
-        gzip: true,
-        cacheMethod: "write",
-      })) as unknown as TWorker;
+      let w: TWorker;
+      try {
+        w = (await (createWorker as any)("eng", 1, {
+          langPath: "/tessdata",
+          gzip: true,
+          cacheMethod: "write",
+        })) as unknown as TWorker;
+      } catch {
+        // Fallback to CDN if local tessdata fails
+        w = (await (createWorker as any)("eng", 1, {
+          langPath: "https://tessdata.projectnaptha.com/4.0.0_fast",
+          gzip: true,
+          cacheMethod: "write",
+        })) as unknown as TWorker;
+      }
+
       try {
         await w.setParameters?.({
-          tessedit_char_whitelist: "0123456789Barcodes: ",
+          tessedit_char_whitelist: "0123456789Barcodes:SKUabcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ -/.",
           tessedit_pageseg_mode: "6" as unknown as number,
           classify_bln_numeric_mode: "1" as unknown as number,
         });
@@ -44,12 +55,13 @@ async function getWorker(): Promise<TWorker> {
   return workerPromise;
 }
 
+// Warm up worker in background
 void getWorker().catch(() => {});
 if (typeof requestIdleCallback !== "undefined") {
   requestIdleCallback(() => void getWorker().catch(() => {}));
 }
 
-// ── Image Preprocessing (tuned for Pelican low-light screen) ─────────────────
+// ── Fast Histogram-based Image Preprocessing ─────────────────────────────────
 
 function preprocessForOcr(src: HTMLCanvasElement): HTMLCanvasElement {
   const w = src.width;
@@ -62,25 +74,46 @@ function preprocessForOcr(src: HTMLCanvasElement): HTMLCanvasElement {
   ctx.drawImage(src, 0, 0);
   const img = ctx.getImageData(0, 0, w, h);
   const d = img.data;
+  const totalPixels = d.length / 4;
 
-  // Grayscale (luminance)
+  // 1. Fast integer luma grayscale & histogram
+  const hist = new Uint32Array(256);
   for (let i = 0; i < d.length; i += 4) {
-    d[i] = d[i + 1] = d[i + 2] = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
+    const gray = (d[i] * 77 + d[i + 1] * 150 + d[i + 2] * 29) >> 8;
+    d[i] = d[i + 1] = d[i + 2] = gray;
+    hist[gray]++;
   }
 
-  // Screen-aware contrast stretch: Pelican screen is often dim / warm.
-  // Use percentile stretch to ignore moiré/overlay outliers.
-  const vals: number[] = [];
-  for (let i = 0; i < d.length; i += 4) vals.push(d[i]);
-  vals.sort((a, b) => a - b);
-  const lo = vals[Math.floor(vals.length * 0.06)] ?? 0;
-  const hi = vals[Math.floor(vals.length * 0.96)] ?? 255;
+  // 2. 5th-95th percentile contrast stretch via 256-bin histogram (O(1) memory, ~1ms)
+  let count = 0;
+  let lo = 0;
+  let hi = 255;
+  const loThresh = totalPixels * 0.05;
+  const hiThresh = totalPixels * 0.95;
+
+  for (let i = 0; i < 256; i++) {
+    count += hist[i];
+    if (count >= loThresh && lo === 0) lo = i;
+    if (count >= hiThresh) {
+      hi = i;
+      break;
+    }
+  }
   const range = Math.max(1, hi - lo);
 
+  // 3. Fast LUT contrast mapping with S-curve for screen digits
+  const lut = new Uint8Array(256);
+  for (let i = 0; i < 256; i++) {
+    if (i <= lo) lut[i] = 0;
+    else if (i >= hi) lut[i] = 255;
+    else {
+      const norm = (i - lo) / range;
+      lut[i] = norm < 0.5 ? Math.max(0, Math.round(norm * 1.8 * 128)) : Math.min(255, Math.round(128 + (norm - 0.5) * 2 * 127));
+    }
+  }
+
   for (let i = 0; i < d.length; i += 4) {
-    let v = ((d[i] - lo) / range) * 255;
-    // Gentle S-curve: push mid-tones for digit edges, keep screen text crisp
-    v = v < 128 ? Math.max(0, v * 0.55) : Math.min(255, 90 + v * 0.72);
+    const v = lut[d[i]];
     d[i] = d[i + 1] = d[i + 2] = v;
   }
 
@@ -88,18 +121,19 @@ function preprocessForOcr(src: HTMLCanvasElement): HTMLCanvasElement {
   return off;
 }
 
-// ── OCR Functions ────────────────────────────────────────────────────────────
+// ── OCR & Detection Pipeline ─────────────────────────────────────────────────
 
 async function ocrCanvas(canvas: HTMLCanvasElement): Promise<string> {
   const w = await getWorker();
-  const { data } = await w.recognize(preprocessForOcr(canvas));
+  const pre = preprocessForOcr(canvas);
+  const { data } = await w.recognize(pre);
   return data.text ?? "";
 }
 
-async function serverOcr(canvas: HTMLCanvasElement, timeoutMs = 1600): Promise<string | null> {
+async function serverOcr(canvas: HTMLCanvasElement, timeoutMs = 1800): Promise<string | null> {
   try {
-    const preprocessed = preprocessForOcr(canvas);
-    const dataUrl = preprocessed.toDataURL("image/jpeg", 0.85);
+    const pre = preprocessForOcr(canvas);
+    const dataUrl = pre.toDataURL("image/jpeg", 0.85);
     const b64 = dataUrl.includes(",") ? dataUrl.split(",")[1] : dataUrl;
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -118,69 +152,7 @@ async function serverOcr(canvas: HTMLCanvasElement, timeoutMs = 1600): Promise<s
   }
 }
 
-async function raceOcr(canvas: HTMLCanvasElement): Promise<string | null> {
-  const serverPromise = serverOcr(canvas, 1600);
-  const localPromise = workerReady
-    ? ocrCanvas(canvas).catch(() => null as string | null)
-    : new Promise<null>((r) => setTimeout(() => r(null), 500));
-
-  const result = await Promise.race([
-    serverPromise.then((t) => (t ? { source: "server" as const, text: t } : null)),
-    localPromise.then((t) => (t ? { source: "local" as const, text: t } : null)),
-  ]);
-
-  if (result) return result.text;
-
-  const fallback = await Promise.race([
-    serverPromise,
-    localPromise,
-    new Promise<null>((r) => setTimeout(() => r(null), 900)),
-  ]);
-  return fallback;
-}
-
-// Instant path for manual Capture: no artificial delays, true parallel race,
-// first valid 14-digit candidate wins immediately.
-async function instantShutterOcr(canvas: HTMLCanvasElement): Promise<string | null> {
-  const detectorP = getDetector()
-    .then((d) => (d ? d.detect(canvas).catch(() => [] as { rawValue: string }[]) : []))
-    .then((bars) => {
-      for (const b of bars) {
-        const v = (b.rawValue ?? "").trim();
-        if (/^\d{8,64}$/.test(v)) {
-          const cand = extractPelicanNumber(v) ?? (v.length === 14 ? v : null);
-          if (cand) return cand;
-        }
-      }
-      return null;
-    });
-
-  const serverP = serverOcr(canvas, 2200).then((t) => (t ? extractPelicanNumber(t) : null));
-  const localP = workerReady
-    ? ocrCanvas(canvas)
-        .then((t) => extractPelicanNumber(t))
-        .catch(() => null as string | null)
-    : Promise.resolve(null as string | null);
-
-  const winner = await Promise.race([detectorP, serverP, localP].map((p) => p.then((v) => (v ? ({ v } as const) : null))));
-  if (winner?.v) return winner.v;
-
-  // If race had no winner yet, wait for the remaining with a short cap
-  const all = await Promise.race([
-    Promise.all([detectorP, serverP, localP]).then((arr) => arr.find(Boolean) ?? null),
-    new Promise<null>((r) => setTimeout(() => r(null), 2600)),
-  ]);
-  return all ?? null;
-}
-
-async function ocrImageSrc(src: string): Promise<string> {
-  const w = await getWorker();
-  const { data } = await w.recognize(src);
-  return data.text ?? "";
-}
-
-// ── BarcodeDetector (hardware-accelerated) ───────────────────────────────────
-
+// BarcodeDetector (hardware-accelerated if available)
 type BarcodeDetectorInstance = { detect: (src: CanvasImageSource) => Promise<{ rawValue: string }[]> };
 let detectorPromise: Promise<BarcodeDetectorInstance | null> | null = null;
 
@@ -190,12 +162,57 @@ function getDetector(): Promise<BarcodeDetectorInstance | null> {
     const Ctor = (window as unknown as { BarcodeDetector?: new (opts: unknown) => BarcodeDetectorInstance }).BarcodeDetector;
     if (!Ctor) return null;
     try {
-      return new Ctor({ formats: ["code_128", "ean_13", "ean_8", "code_39", "upc_a"] });
+      return new Ctor({ formats: ["code_128", "ean_13", "ean_8", "code_39", "upc_a", "itf"] });
     } catch {
-      try { return new Ctor({}); } catch { return null; }
+      try {
+        return new Ctor({});
+      } catch {
+        return null;
+      }
     }
   })();
   return detectorPromise;
+}
+
+async function scanCanvas(canvas: HTMLCanvasElement, timeoutMs = 1800): Promise<string | null> {
+  // 1. Hardware BarcodeDetector
+  try {
+    const det = await getDetector();
+    if (det) {
+      const barcodes = await det.detect(canvas);
+      for (const b of barcodes) {
+        const val = (b.rawValue ?? "").trim();
+        const cand = extractPelicanNumber(val) ?? (/^\d{8,24}$/.test(val) ? val : null);
+        if (cand) return cand;
+      }
+    }
+  } catch {}
+
+  // 2. Parallel OCR: local Tesseract + server OCR
+  const localPromise = workerReady
+    ? ocrCanvas(canvas)
+        .then((t) => extractPelicanNumber(t))
+        .catch(() => null)
+    : Promise.resolve(null);
+
+  const serverPromise = serverOcr(canvas, timeoutMs)
+    .then((t) => (t ? extractPelicanNumber(t) : null))
+    .catch(() => null);
+
+  const first = await Promise.race([
+    localPromise.then((v) => (v ? { v } : null)),
+    serverPromise.then((v) => (v ? { v } : null)),
+  ]);
+  if (first?.v) return first.v;
+
+  const results = await Promise.all([localPromise, serverPromise]);
+  return results[0] ?? results[1] ?? null;
+}
+
+async function ocrImageSrc(src: string): Promise<string> {
+  const w = await getWorker();
+  const { data } = await w.recognize(src);
+  return data.text ?? "";
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -218,6 +235,7 @@ export default function PelicanScanner({ onDetected }: Props) {
   const [starting, setStarting] = useState(true);
   const [cameraError, setCameraError] = useState(false);
   const [capturing, setCapturing] = useState(false);
+  const [captureError, setCaptureError] = useState(false);
 
   const onDetectedRef = useRef(onDetected);
   onDetectedRef.current = onDetected;
@@ -247,126 +265,124 @@ export default function PelicanScanner({ onDetected }: Props) {
     }
   };
 
-  const captureFrame = useCallback((): HTMLCanvasElement | null => {
+  // Crop centered scan zone (optimal 800px width for fast Tesseract execution)
+  const captureCrop = useCallback((): HTMLCanvasElement | null => {
     const v = videoRef.current;
-    const canvas = canvasRef.current;
-    if (!v || !canvas || v.readyState < 2 || v.videoWidth === 0) return null;
+    if (!v || v.readyState < 2 || v.videoWidth === 0) return null;
     const vw = v.videoWidth;
     const vh = v.videoHeight;
     const sw = vw * 0.76;
     const sh = vh * 0.44;
     const sx = (vw - sw) / 2;
     const sy = (vh - sh) / 2;
-    const scale = 1.35;
-    canvas.width = Math.round(sw * scale);
-    canvas.height = Math.round(sh * scale);
-    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+
+    const targetW = 800;
+    const targetH = Math.round((targetW * sh) / sw);
+
+    const off = document.createElement("canvas");
+    off.width = targetW;
+    off.height = targetH;
+    const ctx = off.getContext("2d", { willReadFrequently: true });
     if (!ctx) return null;
     ctx.imageSmoothingEnabled = true;
-    ctx.drawImage(v, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
-    return canvas;
+    ctx.drawImage(v, sx, sy, sw, sh, 0, 0, targetW, targetH);
+    return off;
   }, []);
 
-  // Higher-res shutter for manual Capture: bigger scale so digits are crisp.
-  const captureFrameHiRes = useCallback((): HTMLCanvasElement | null => {
+  // Full frame capture (fallback for manual capture if target was off-center)
+  const captureFull = useCallback((): HTMLCanvasElement | null => {
     const v = videoRef.current;
     if (!v || v.readyState < 2 || v.videoWidth === 0) return null;
     const vw = v.videoWidth;
     const vh = v.videoHeight;
-    const sw = vw * 0.78;
-    const sh = vh * 0.46;
-    const sx = (vw - sw) / 2;
-    const sy = (vh - sh) / 2;
-    const scale = 1.9;
+    const targetW = 960;
+    const targetH = Math.round((targetW * vh) / vw);
+
     const off = document.createElement("canvas");
-    off.width = Math.round(sw * scale);
-    off.height = Math.round(sh * scale);
+    off.width = targetW;
+    off.height = targetH;
     const ctx = off.getContext("2d", { willReadFrequently: true });
     if (!ctx) return null;
     ctx.imageSmoothingEnabled = true;
-    (ctx as unknown as { imageSmoothingQuality?: string }).imageSmoothingQuality = "high";
-    ctx.drawImage(v, sx, sy, sw, sh, 0, 0, off.width, off.height);
+    ctx.drawImage(v, 0, 0, vw, vh, 0, 0, targetW, targetH);
     return off;
   }, []);
 
-  const [captureError, setCaptureError] = useState(false);
+  const startAutoLoop = useCallback(() => {
+    if (timerRef.current) window.clearInterval(timerRef.current);
+    timerRef.current = window.setInterval(async () => {
+      if (busyRef.current) return;
+      const crop = captureCrop();
+      if (!crop) return;
+      busyRef.current = true;
+      try {
+        const cand = await scanCanvas(crop, 1500);
+        if (cand) {
+          const confirmed = confirmRef.current.push(cand);
+          if (confirmed) {
+            stopCamera();
+            onDetectedRef.current(confirmed);
+            return;
+          }
+        }
+      } catch {} finally {
+        busyRef.current = false;
+      }
+    }, 280);
+  }, [captureCrop, stopCamera]);
 
+  // Manual Capture button handler: instant shutter, scans crop + full frame in parallel
   const handleManualCapture = useCallback(async () => {
     if (capturing) return;
-    // Manual overrides auto: pause auto loop instantly, never blocked by busyRef.
+
+    // Pause auto loop immediately
     if (timerRef.current) window.clearInterval(timerRef.current);
     timerRef.current = null;
     busyRef.current = true;
     setCapturing(true);
     setCaptureError(false);
+
     try {
-      // Shutter: capture hi-res frame synchronously (0ms) from live video pixels.
-      const canvas = captureFrameHiRes() ?? captureFrame();
-      if (!canvas) {
+      const crop = captureCrop();
+      const full = captureFull();
+
+      if (!crop && !full) {
         setCaptureError(true);
         return;
       }
 
-      const found = await instantShutterOcr(canvas);
-      if (found) {
+      // Scan target crop first (fastest)
+      let cand: string | null = null;
+      if (crop) {
+        cand = await scanCanvas(crop, 2200);
+      }
+
+      // If not found in center crop, scan full view
+      if (!cand && full) {
+        cand = await scanCanvas(full, 2200);
+      }
+
+      if (cand) {
         stopCamera();
-        onDetectedRef.current(found);
+        onDetectedRef.current(cand);
         return;
       }
-      // No number in this shutter — brief feedback, then resume auto.
+
+      // No match found — show retry pill
       setCaptureError(true);
-      window.setTimeout(() => setCaptureError(false), 1700);
+      window.setTimeout(() => setCaptureError(false), 2000);
     } finally {
       setCapturing(false);
-      if (!streamRef.current) return;
-      // Already stopped on success — don't resume if camera was closed.
-      if (!streamRef.current) return;
-      // Resume auto loop after a short re-aim window
-      window.setTimeout(() => {
-        if (!streamRef.current || timerRef.current) return;
-        busyRef.current = false;
-        timerRef.current = window.setInterval(async () => {
-          if (busyRef.current) return;
-          const c = captureFrame();
-          if (!c) return;
-          busyRef.current = true;
-          try {
-            const detector = await getDetector();
-            if (detector) {
-              try {
-                const barcodes = await detector.detect(c);
-                for (const b of barcodes) {
-                  const val = (b.rawValue ?? "").trim();
-                  if (/^\d{8,64}$/.test(val)) {
-                    const cand = extractPelicanNumber(val) ?? (val.length === 14 ? val : null);
-                    if (cand) {
-                      const confirmed = confirmRef.current.push(cand);
-                      if (confirmed) {
-                        stopCamera();
-                        onDetectedRef.current(confirmed);
-                        return;
-                      }
-                    }
-                  }
-                }
-              } catch {}
-            }
-            const text = await raceOcr(c);
-            if (text) {
-              const candidate = extractPelicanNumber(text);
-              const confirmed = confirmRef.current.push(candidate);
-              if (confirmed) {
-                stopCamera();
-                onDetectedRef.current(confirmed);
-              }
-            }
-          } catch {} finally {
-            busyRef.current = false;
-          }
-        }, 240);
-      }, 350);
+      // If camera is still active, resume auto scanning
+      if (streamRef.current) {
+        window.setTimeout(() => {
+          if (!streamRef.current || timerRef.current) return;
+          busyRef.current = false;
+          startAutoLoop();
+        }, 300);
+      }
     }
-  }, [capturing, captureFrame, captureFrameHiRes, stopCamera]);
+  }, [capturing, captureCrop, captureFull, startAutoLoop, stopCamera]);
 
   const startCamera = useCallback(async () => {
     setCameraError(false);
@@ -413,56 +429,15 @@ export default function PelicanScanner({ onDetected }: Props) {
       if (caps?.torch) setTorchSupported(true);
       setStarting(false);
 
-      void getDetector().catch(() => {});
-      void getWorker().catch(() => {});
-
-      timerRef.current = window.setInterval(async () => {
-        if (busyRef.current) return;
-        const canvas = captureFrame();
-        if (!canvas) return;
-        busyRef.current = true;
-        try {
-          const detector = await getDetector();
-          if (detector) {
-            try {
-              const barcodes = await detector.detect(canvas);
-              for (const b of barcodes) {
-                const val = (b.rawValue ?? "").trim();
-                if (/^\d{8,64}$/.test(val)) {
-                  const cand = extractPelicanNumber(val) ?? (val.length === 14 ? val : null);
-                  if (cand) {
-                    const confirmed = confirmRef.current.push(cand);
-                    if (confirmed) {
-                      stopCamera();
-                      onDetectedRef.current(confirmed);
-                      return;
-                    }
-                  }
-                }
-              }
-            } catch {}
-          }
-
-          const text = await raceOcr(canvas);
-          if (text) {
-            const candidate = extractPelicanNumber(text);
-            const confirmed = confirmRef.current.push(candidate);
-            if (confirmed) {
-              stopCamera();
-              onDetectedRef.current(confirmed);
-            }
-          }
-        } catch {} finally {
-          busyRef.current = false;
-        }
-      }, 240);
+      // Start auto scan interval
+      startAutoLoop();
     } catch (err) {
       const name = (err as DOMException)?.name ?? "";
       if (name === "NotAllowedError") setNeedsGesture(true);
       else setCameraError(true);
       setStarting(false);
     }
-  }, [stopCamera, captureFrame]);
+  }, [stopCamera, startAutoLoop]);
 
   useEffect(() => {
     void startCamera();
@@ -488,13 +463,19 @@ export default function PelicanScanner({ onDetected }: Props) {
         if (detector) {
           const img = new Image();
           img.src = url;
-          await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = () => rej(new Error("img")); });
+          await new Promise<void>((res, rej) => {
+            img.onload = () => res();
+            img.onerror = () => rej(new Error("img"));
+          });
           const barcodes = await detector.detect(img);
           for (const b of barcodes) {
             const val = (b.rawValue ?? "").trim();
-            if (/^\d{8,64}$/.test(val)) {
-              const cand = extractPelicanNumber(val) ?? (val.length === 14 ? val : null);
-              if (cand) { URL.revokeObjectURL(url); stopCamera(); onDetected(cand); return; }
+            const cand = extractPelicanNumber(val) ?? (/^\d{8,24}$/.test(val) ? val : null);
+            if (cand) {
+              URL.revokeObjectURL(url);
+              stopCamera();
+              onDetected(cand);
+              return;
             }
           }
         }
@@ -502,7 +483,10 @@ export default function PelicanScanner({ onDetected }: Props) {
       const text = await ocrImageSrc(url);
       URL.revokeObjectURL(url);
       const candidate = extractPelicanNumber(text);
-      if (candidate) { stopCamera(); onDetected(candidate); }
+      if (candidate) {
+        stopCamera();
+        onDetected(candidate);
+      }
     } catch {
       URL.revokeObjectURL(url);
     }
@@ -526,7 +510,12 @@ export default function PelicanScanner({ onDetected }: Props) {
       </div>
 
       {torchSupported && !needsGesture && (
-        <button type="button" className={`pelican-torch ${torchError ? "pelican-torch--error" : ""}`} onClick={() => void toggleTorch()} aria-label="Toggle flash">
+        <button
+          type="button"
+          className={`pelican-torch ${torchError ? "pelican-torch--error" : ""}`}
+          onClick={() => void toggleTorch()}
+          aria-label="Toggle flash"
+        >
           <Flashlight size={16} /> {torchError ? t.flashUnavailable : torchOn ? t.flashOn : t.flashOff}
         </button>
       )}
@@ -538,7 +527,9 @@ export default function PelicanScanner({ onDetected }: Props) {
       )}
 
       {starting && !needsGesture && !cameraError && (
-        <div className="pelican-starting" aria-hidden="true">{t.startingCamera}</div>
+        <div className="pelican-starting" aria-hidden="true">
+          {t.startingCamera}
+        </div>
       )}
 
       {!starting && !needsGesture && !cameraError && (

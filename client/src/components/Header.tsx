@@ -12,25 +12,38 @@ type DeferredPrompt = Event & {
 export default function Header() {
   const { lang, t, toggle } = useLang();
   const { toggle: toggleTheme } = useTheme();
-  const [deferred, setDeferred] = useState<DeferredPrompt | null>(null);
+  const [deferred, setDeferred] = useState<DeferredPrompt | null>(() => {
+    return typeof window !== "undefined" ? (window as unknown as { __deferredPrompt?: DeferredPrompt }).__deferredPrompt ?? null : null;
+  });
   const [standalone, setStandalone] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
 
   useEffect(() => {
     setStandalone(isStandaloneDisplay());
+
     const onPrompt = (e: Event) => {
       e.preventDefault();
+      (window as unknown as { __deferredPrompt?: DeferredPrompt }).__deferredPrompt = e as DeferredPrompt;
       setDeferred(e as DeferredPrompt);
     };
+    const onPromptReady = () => {
+      const p = (window as unknown as { __deferredPrompt?: DeferredPrompt }).__deferredPrompt;
+      if (p) setDeferred(p);
+    };
     const onInstalled = () => {
+      (window as unknown as { __deferredPrompt?: DeferredPrompt | null }).__deferredPrompt = null;
       setDeferred(null);
       setStandalone(true);
       setShowGuide(false);
     };
+
     window.addEventListener("beforeinstallprompt", onPrompt);
+    window.addEventListener("app-prompt-ready", onPromptReady);
     window.addEventListener("appinstalled", onInstalled);
+
     return () => {
       window.removeEventListener("beforeinstallprompt", onPrompt);
+      window.removeEventListener("app-prompt-ready", onPromptReady);
       window.removeEventListener("appinstalled", onInstalled);
     };
   }, []);
@@ -46,14 +59,20 @@ export default function Header() {
       setShowGuide(true);
       return;
     }
-    if (!deferred) {
+    const promptEvent = deferred || (window as unknown as { __deferredPrompt?: DeferredPrompt }).__deferredPrompt;
+    if (!promptEvent) {
       setShowGuide(true);
       return;
     }
-    await deferred.prompt();
-    const { outcome } = await deferred.userChoice;
-    setDeferred(null);
-    if (outcome === "dismissed") setShowGuide(true);
+    try {
+      await promptEvent.prompt();
+      const { outcome } = await promptEvent.userChoice;
+      (window as unknown as { __deferredPrompt?: DeferredPrompt | null }).__deferredPrompt = null;
+      setDeferred(null);
+      if (outcome === "dismissed") setShowGuide(true);
+    } catch {
+      setShowGuide(true);
+    }
   };
 
   return (

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import BarcodePreview, { FORMAT_CONFIG, type BarcodeFormat } from "./BarcodePreview";
 import QRCodePreview from "./QRCodePreview";
 import NumberInput from "./NumberInput";
@@ -8,15 +8,25 @@ import { useLang } from "@/lib/i18n";
 
 const FORMAT_OPTIONS = Object.keys(FORMAT_CONFIG) as BarcodeFormat[];
 
-type Props = { onScan?: () => void };
+type Props = {
+  initialValue?: string;
+  onScan?: () => void;
+};
 
-export default function BarcodeGenerator({ onScan }: Props) {
+export default function BarcodeGenerator({ initialValue = "", onScan }: Props) {
   const { t } = useLang();
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState(initialValue);
   const [format, setFormat] = useState<BarcodeFormat>("CODE128");
   const [mode, setMode] = useState<"barcode" | "qr">("barcode");
   const [error, setError] = useState("");
   const { addNumber, findMatch } = useNumberHistory();
+
+  useEffect(() => {
+    if (initialValue) {
+      setInput(initialValue);
+      setError("");
+    }
+  }, [initialValue]);
 
   const resolvedNumber = useMemo(() => {
     if (!input) return "";
