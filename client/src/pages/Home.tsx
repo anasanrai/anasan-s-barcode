@@ -12,7 +12,6 @@ export default function Home() {
   const barcodeRef = useRef<BarcodePreviewHandle | null>(null);
 
   const handleDetected = (value: string) => {
-    // Preserve as string — never convert to number — keep leading zeros
     setNumber(value);
     setBarcodeError("");
     setScreen("result");
