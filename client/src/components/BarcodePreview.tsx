@@ -27,10 +27,8 @@ const FORMAT_CONFIG: Record<BarcodeFormat, { label: string; pattern: RegExp; des
   ITF14: { label: "ITF-14", pattern: /^\d{13,14}$/, description: "13 or 14 digits" },
 };
 
-function getBarcodeColors(theme: "dark" | "light") {
-  return theme === "dark"
-    ? { lineColor: "#1A0F0A", background: "#FBEF00" }
-    : { lineColor: "#1A0F0A", background: "#FBEF00" };
+function getBarcodeColors(_theme: "dark" | "light") {
+  return { lineColor: "#0A0B0E", background: "#FFFFFF" };
 }
 
 const BarcodePreview = forwardRef<BarcodePreviewHandle, BarcodePreviewProps>(function BarcodePreview(

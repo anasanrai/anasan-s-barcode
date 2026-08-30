@@ -9,10 +9,8 @@ type Props = {
   onError: (message: string) => void;
 };
 
-function getQrColors(theme: "dark" | "light") {
-  return theme === "dark"
-    ? { dark: "#1A0F0A", light: "#FBEF00" }
-    : { dark: "#1A0F0A", light: "#FFFFFF" };
+function getQrColors(_theme: "dark" | "light") {
+  return { dark: "#0A0B0E", light: "#FFFFFF" };
 }
 
 export default function QRCodePreview({ value, onError }: Props) {

@@ -1,19 +1,19 @@
 @import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;600;700&family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
 
-/* ——— Design Tokens ——— */
+/* ——— Design Tokens (Saztech Obsidian Black & Warm Amber-Orange) ——— */
 :root {
   --font-display: "Space Grotesk", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", "DM Mono", monospace;
-  --color-bg: #1A0F0A;
-  --color-surface: #231612;
-  --color-surface-raised: #2C1C16;
-  --color-border: rgba(251, 239, 0, 0.08);
-  --color-text: #FBEF00;
-  --color-text-muted: #C4A882;
-  --color-accent: #FBEF00;
-  --color-accent-dim: rgba(251, 239, 0, 0.12);
-  --color-accent-glow: rgba(251, 239, 0, 0.25);
+  --color-bg: #0A0B0E;
+  --color-surface: #121319;
+  --color-surface-raised: #1A1C24;
+  --color-border: rgba(255, 122, 24, 0.14);
+  --color-text: #F2F4F8;
+  --color-text-muted: #9497A8;
+  --color-accent: #FF7A18;
+  --color-accent-dim: rgba(255, 122, 24, 0.16);
+  --color-accent-glow: rgba(255, 122, 24, 0.4);
   --color-success: #34d399;
   --color-error: #f87171;
   --radius-sm: 8px;
@@ -77,8 +77,8 @@ button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparen
   border-radius: var(--radius-lg);
   box-shadow:
     0 0 0 9999px rgba(0, 0, 0, 0.5),
-    inset 0 0 60px rgba(251, 239, 0, 0.04),
-    0 0 80px rgba(251, 239, 0, 0.06);
+    inset 0 0 60px rgba(255, 122, 24, 0.05),
+    0 0 80px rgba(255, 122, 24, 0.08);
   position: relative;
   backdrop-filter: blur(0.5px);
 }
@@ -201,7 +201,7 @@ button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparen
   background: var(--color-accent);
   color: var(--color-bg);
   font-size: 15px; font-weight: 700;
-  box-shadow: 0 4px 24px rgba(251, 239, 0, 0.35), 0 0 0 1px rgba(251, 239, 0, 0.2);
+  box-shadow: 0 4px 24px var(--color-accent-glow), 0 0 0 1px var(--color-accent);
   transition: all 0.15s var(--ease-spring);
 }
 .pelican-manual:active { transform: translateX(-50%) scale(0.94); }
@@ -338,7 +338,7 @@ button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparen
 }
 .hs-logo__img {
   height: 40px; width: auto;
-  filter: drop-shadow(0 2px 8px rgba(251, 239, 0, 0.3));
+  filter: drop-shadow(0 2px 8px var(--color-accent-glow));
 }
 .hs-header__actions {
   display: flex; align-items: center; gap: 8px;
@@ -357,9 +357,9 @@ button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparen
 .hs-install-btn {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 8px 16px; border-radius: var(--radius-pill);
-  border: 1px solid rgba(251, 239, 0, 0.25);
+  border: 1px solid var(--color-border);
   background: var(--color-accent);
-  color: var(--color-bg);
+  color: #fff;
   font-size: 13px; font-weight: 700;
   transition: all 0.15s var(--ease-out);
 }
@@ -556,30 +556,75 @@ html[dir="rtl"] .pelican-tab { font-family: "Noto Sans Arabic", var(--font-displ
 /* Number Input */
 .number-input-wrap { width: 100%; }
 .number-input-row {
-  position: relative; display: flex; gap: 8px;
+  position: relative; display: flex; gap: 8px; width: 100%;
+  align-items: center;
 }
 .number-input {
   flex: 1;
   font-family: var(--font-mono);
   font-size: 20px; font-weight: 600;
   letter-spacing: 0.08em;
-  padding: 14px 18px;
+  padding: 14px 84px 14px 18px;
   border-radius: var(--radius-md);
   border: 1.5px solid rgba(255, 255, 255, 0.1);
   background: var(--color-surface);
   color: var(--color-text);
   outline: none;
-  transition: border-color 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
-.number-input:focus { border-color: var(--color-accent); }
-.number-input::placeholder { color: rgba(255, 255, 255, 0.2); font-weight: 400; }
+html[dir="rtl"] .number-input {
+  padding: 14px 18px 14px 84px;
+}
+.number-input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-dim);
+}
+.number-input-row--listening .number-input {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-dim), 0 0 20px var(--color-accent-glow);
+}
+.number-input::placeholder { color: rgba(255, 255, 255, 0.3); font-weight: 400; }
+.number-input__actions {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  display: flex; align-items: center; gap: 4px; z-index: 2;
+}
+html[dir="rtl"] .number-input__actions {
+  right: auto; left: 8px;
+}
+.number-input__btn {
+  width: 34px; height: 34px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: var(--radius-pill);
+  color: var(--color-text-muted);
+  background: transparent;
+  transition: all 0.15s var(--ease-out);
+}
+.number-input__btn:hover {
+  color: var(--color-text);
+  background: var(--color-surface-raised);
+}
+.number-input__btn--clear:active { transform: scale(0.9); }
+.number-input__btn--voice {
+  color: var(--color-accent);
+}
+.number-input__btn--listening {
+  color: #fff;
+  background: var(--color-accent) !important;
+  box-shadow: 0 0 16px var(--color-accent-glow);
+  animation: pulse-voice 1.4s infinite alternate;
+}
+@keyframes pulse-voice {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 122, 24, 0.7); }
+  70% { transform: scale(1.08); box-shadow: 0 0 0 8px rgba(255, 122, 24, 0); }
+  100% { transform: scale(1.05); }
+}
 .number-suggestion {
   font-family: var(--font-mono);
   font-size: 14px; font-weight: 600;
   letter-spacing: 0.06em;
   padding: 10px 16px;
   border-radius: var(--radius-md);
-  border: 1.5px solid rgba(251, 239, 0, 0.3);
+  border: 1.5px solid var(--color-accent);
   background: var(--color-accent-dim);
   color: var(--color-accent);
   white-space: nowrap;
@@ -618,7 +663,7 @@ html[dir="rtl"] .pelican-tab { font-family: "Noto Sans Arabic", var(--font-displ
   width: 100%;
   max-width: 400px;
   background: var(--color-surface);
-  border: 1px solid rgba(251, 239, 0, 0.06);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: 20px 16px 14px;
   display: flex; flex-direction: column; align-items: center;
@@ -657,7 +702,7 @@ html[dir="rtl"] .pelican-tab { font-family: "Noto Sans Arabic", var(--font-displ
   display: inline-flex; align-items: center; gap: 5px;
   font-size: 13px; font-weight: 600;
   padding: 8px 16px; border-radius: var(--radius-pill);
-  border: 1px solid rgba(251, 239, 0, 0.08);
+  border: 1px solid var(--color-border);
   background: var(--color-surface-raised);
   color: var(--color-text-muted);
   transition: all 0.15s var(--ease-out);
@@ -665,7 +710,7 @@ html[dir="rtl"] .pelican-tab { font-family: "Noto Sans Arabic", var(--font-displ
   white-space: nowrap;
 }
 .barcode-download:active { transform: scale(0.95); }
-.barcode-download:hover { color: var(--color-text); border-color: rgba(251, 239, 0, 0.15); }
+.barcode-download:hover { color: var(--color-text); border-color: var(--color-accent); }
 .generator__number {
   font-family: var(--font-mono);
   font-size: 14px; font-weight: 600;
