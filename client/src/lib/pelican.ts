@@ -7,6 +7,7 @@
 
 export const PELICAN_LENGTH = 14;
 
+/** Max match length — 64 chars catches any realistic barcode while capping pathological regex backtracking. */
 const LONG_DIGITS = /\d{6,64}/g;
 
 /** Normalize common OCR confusions but preserve leading zeros. */

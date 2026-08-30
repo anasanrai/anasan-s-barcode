@@ -37,6 +37,7 @@ button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparen
   display:inline-flex; align-items:center; gap:6px; padding: 8px 12px; border-radius: 999px;
   border:1px solid rgba(255,255,255,0.32); background: rgba(0,0,0,0.48); color:#fff; font-size:12px; backdrop-filter: blur(6px);
 }
+.pelican-torch--error { border-color: rgba(252,129,129,0.7); background: rgba(127,29,29,0.5); color: #fca5a5; }
 .pelican-tap {
   position: absolute; left:50%; top:50%; transform: translate(-50%, -50%); z-index: 3;
   display:inline-flex; align-items:center; gap:10px; padding: 14px 20px; border-radius: 999px;
@@ -69,6 +70,7 @@ button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparen
 .pelican-result__barcode .barcode-caption { font-family: "DM Mono", monospace; font-size: 11px; letter-spacing: 0.12em; color:#475569; margin-top:10px; word-break:break-all; }
 .pelican-result__barcode .download-link { display:none; }
 .pelican-result__number { font-family: "DM Mono", monospace; font-size: 13px; letter-spacing:0.08em; color:#334155; margin:0; word-break:break-all; }
+.pelican-result__error { font-size: 13px; color:#dc2626; background: #fef2f2; padding: 8px 14px; border-radius: 8px; border: 1px solid #fecaca; margin: 0; }
 .pelican-back { margin-top: 6px; padding: 11px 18px; border-radius: 999px; border:1px solid #e2e8f0; background:#f8fafc; color:#0f172a; font-size:13px; font-weight:600; }
 .pelican-back:hover { background:#eef2f7; }
 .pelican-back:active { transform: scale(0.98); }

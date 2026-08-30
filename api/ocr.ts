@@ -44,18 +44,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(400).json({ error: "missing image" });
     return;
   }
-  const b64 = image.includes(",") ? image.split(",")[1] : image;
+  // Strip data URL prefix if present — use regex to handle any image type
+  const b64 = image.replace(/^data:image\/\w+;base64,/, "");
   const dataUrl = `data:image/jpeg;base64,${b64}`;
 
-  // Prefer NIM if key is set — use best model for this app: nemoretriever-ocr (instant, handles screen glare)
-  // Master key works for https://ai.api.nvidia.com. Custom URL can override via NIM_OCR_URL.
+  // Prefer NIM if key is set — nemoretriever-ocr (instant, handles screen glare)
   const nimKey = process.env.NIM_API_KEY;
   const nimUrl =
     process.env.NIM_OCR_URL || (nimKey ? "https://ai.api.nvidia.com/v1/cv/nvidia/nemoretriever-ocr" : null);
 
   if (nimKey && nimUrl) {
-    // Try nemoretriever-ocr first, fall back to paddleocr
-    const endpoints = nimUrl.includes("nemoretriever") ? [nimUrl, "https://ai.api.nvidia.com/v1/cv/baidu/paddleocr"] : [nimUrl];
+    // If user provided paddle endpoint, use only that; otherwise prefer nemoretriever then fallback to paddle
+    const endpoints = nimUrl.includes("paddle") ? [nimUrl] : [nimUrl, "https://ai.api.nvidia.com/v1/cv/baidu/paddleocr"];
     for (const url of endpoints) {
       try {
         const r = await fetch(url, {
@@ -63,6 +63,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           headers: { Authorization: `Bearer ${nimKey}`, "Content-Type": "application/json", Accept: "application/json" },
           body: JSON.stringify({ input: [{ type: "image_url", url: dataUrl }] }),
         });
+        // Auth errors = bad key — fail fast, don't fall through to slow tesseract
+        if (r.status === 401 || r.status === 403) {
+          res.status(500).json({ error: "nvidia auth failed — check NIM_API_KEY", status: r.status });
+          return;
+        }
         if (!r.ok) continue;
         const j = await r.json();
         const text = extractTextFromNimResponse(j);

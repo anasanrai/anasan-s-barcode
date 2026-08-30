@@ -14,21 +14,26 @@ let workerPromise: Promise<TWorker> | null = null;
 async function getWorker(): Promise<TWorker> {
   if (workerPromise) return workerPromise;
   workerPromise = (async () => {
-    const { createWorker } = await import("tesseract.js");
-    // Use same-origin fast tessdata (client/public/tessdata) — avoids 7s CDN on first load
-    const w = (await (createWorker as any)("eng", 1, {
-      langPath: "/tessdata",
-      gzip: true,
-      cacheMethod: "write",
-    })) as unknown as TWorker;
     try {
-      await w.setParameters?.({
-        tessedit_char_whitelist: "0123456789Barcodes: ",
-        tessedit_pageseg_mode: "6" as unknown as number,
-        classify_bln_numeric_mode: "1" as unknown as number,
-      });
-    } catch {}
-    return w;
+      const { createWorker } = await import("tesseract.js");
+      const w = (await (createWorker as any)("eng", 1, {
+        langPath: "/tessdata",
+        gzip: true,
+        cacheMethod: "write",
+      })) as unknown as TWorker;
+      try {
+        await w.setParameters?.({
+          tessedit_char_whitelist: "0123456789Barcodes: ",
+          tessedit_pageseg_mode: "6" as unknown as number,
+          classify_bln_numeric_mode: "1" as unknown as number,
+        });
+      } catch {}
+      return w;
+    } catch (e) {
+      // Reset singleton so next call retries instead of returning rejected promise
+      workerPromise = null;
+      throw e;
+    }
   })();
   return workerPromise;
 }
@@ -94,9 +99,11 @@ export default function PelicanScanner({ onDetected }: Props) {
   const busyRef = useRef(false);
   const timerRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const torchFailCountRef = useRef(0);
 
   const [torchOn, setTorchOn] = useState(false);
   const [torchSupported, setTorchSupported] = useState(false);
+  const [torchError, setTorchError] = useState(false);
   const [needsGesture, setNeedsGesture] = useState(false);
   const [starting, setStarting] = useState(true);
   const [cameraError, setCameraError] = useState(false);
@@ -121,7 +128,12 @@ export default function PelicanScanner({ onDetected }: Props) {
     try {
       await track.applyConstraints({ advanced: [{ torch: !torchOn } as unknown as MediaTrackConstraintSet] });
       setTorchOn((v) => !v);
-    } catch {}
+      torchFailCountRef.current = 0;
+      setTorchError(false);
+    } catch {
+      torchFailCountRef.current += 1;
+      if (torchFailCountRef.current >= 2) setTorchError(true);
+    }
   };
 
   const startCamera = useCallback(async () => {
@@ -181,8 +193,6 @@ export default function PelicanScanner({ onDetected }: Props) {
         try {
           const vw = v.videoWidth;
           const vh = v.videoHeight;
-          // Enlarged scan window to avoid clipping Barcodes: line seen in screenshot
-          // Matches CSS .pelican-rect (76vw x 44vw)
           const sw = vw * 0.76;
           const sh = vh * 0.44;
           const sx = (vw - sw) / 2;
@@ -193,7 +203,6 @@ export default function PelicanScanner({ onDetected }: Props) {
           const ctx = canvas.getContext("2d", { willReadFrequently: true });
           if (!ctx) return;
           ctx.imageSmoothingEnabled = true;
-          // Downscale via JPEG for server path — keep canvas sharp for local OCR
           ctx.drawImage(v, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
 
           // 1) Native BarcodeDetector fast path (~10-30ms, hardware)
@@ -219,25 +228,34 @@ export default function PelicanScanner({ onDetected }: Props) {
           } catch {}
 
           // 2) Server OCR instant path (~150-400ms, no client model download)
-          let text: string | null = await serverOcr(canvas, 650);
-          // 3) Local OCR fallback (uses pre-warmed worker, ~300-600ms after first load)
-          if (text == null) {
-            // If server unavailable, use local; if worker not ready yet, skip frame to avoid queue
-            try {
-              text = await Promise.race([
-                ocrCanvas(canvas),
-                new Promise<string | null>((_, rej) => setTimeout(() => rej(new Error("t")), 900)),
-              ]) as string | null;
-            } catch {
-              return;
+          const text = await serverOcr(canvas, 650);
+          if (text != null) {
+            const candidate = extractPelicanNumber(text);
+            const confirmed = confirmRef.current.push(candidate);
+            if (confirmed) {
+              stopCamera();
+              onDetectedRef.current(confirmed);
             }
+            return; // Server responded — skip local OCR this tick
           }
-          if (text == null) return;
-          const candidate = extractPelicanNumber(text);
-          const confirmed = confirmRef.current.push(candidate);
-          if (confirmed) {
-            stopCamera();
-            onDetectedRef.current(confirmed);
+
+          // 3) Local OCR fallback — only if server didn't respond (not timeout)
+          try {
+            const localText = await Promise.race([
+              ocrCanvas(canvas),
+              new Promise<string>((_, rej) => setTimeout(() => rej(new Error("local-ocr-timeout")), 900)),
+            ]);
+            const candidate = extractPelicanNumber(localText);
+            const confirmed = confirmRef.current.push(candidate);
+            if (confirmed) {
+              stopCamera();
+              onDetectedRef.current(confirmed);
+            }
+          } catch (err) {
+            // Log timeout silently, surface real errors
+            if (err instanceof Error && err.message !== "local-ocr-timeout") {
+              console.error("[pelican] local ocr error:", err);
+            }
           }
         } catch {
         } finally {
@@ -322,8 +340,8 @@ export default function PelicanScanner({ onDetected }: Props) {
       </div>
 
       {torchSupported && !needsGesture && (
-        <button type="button" className="pelican-torch" onClick={() => void toggleTorch()} aria-label="Toggle flash">
-          <Flashlight size={16} /> {torchOn ? "Flash on" : "Flash"}
+        <button type="button" className={`pelican-torch ${torchError ? "pelican-torch--error" : ""}`} onClick={() => void toggleTorch()} aria-label="Toggle flash">
+          <Flashlight size={16} /> {torchError ? "Flash unavailable" : torchOn ? "Flash on" : "Flash"}
         </button>
       )}
 
