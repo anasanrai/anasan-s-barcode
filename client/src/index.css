@@ -228,6 +228,7 @@ button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparen
 .pelican-result__barcode .barcode-art {
   background: #fff;
   width: 100%;
+  max-width: 100%;
   padding: 24px 16px 16px;
   border-radius: var(--radius-lg);
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 20px 60px rgba(0, 0, 0, 0.4);
@@ -286,8 +287,8 @@ button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparen
 .pelican-back:active { transform: scale(0.97); }
 
 /* ——— Shared ——— */
-.barcode-art { text-align: center; }
-.barcode-art svg { width: min(100%, 560px); }
+.barcode-art { text-align: center; max-width: 400px; margin: 0 auto; }
+.barcode-art svg { width: 100%; display: block; }
 .barcode-caption { display: block; }
 .download-link {
   color: var(--color-accent); border: 0; background: none;
@@ -603,11 +604,16 @@ html[dir="rtl"] .pelican-tab { font-family: "Noto Sans Arabic", var(--font-displ
 /* Generated barcode area */
 .generator__barcode {
   width: 100%;
+  max-width: 400px;
   background: var(--color-surface);
   border: 1px solid rgba(251, 239, 0, 0.06);
   border-radius: var(--radius-lg);
   padding: 16px 14px 12px;
   display: flex; flex-direction: column; align-items: center;
+}
+.generator__barcode .barcode-art {
+  max-width: 100%;
+  width: 100%;
 }
 .generator__barcode .barcode-art svg {
   width: 100% !important; max-height: none !important;
@@ -633,6 +639,8 @@ html[dir="rtl"] .pelican-tab { font-family: "Noto Sans Arabic", var(--font-displ
 .barcode-validity--err { color: var(--color-error); background: rgba(248, 113, 113, 0.1); }
 .barcode-actions {
   display: flex; gap: 6px; margin-top: 6px;
+  justify-content: center;
+  width: 100%;
 }
 .barcode-download {
   display: inline-flex; align-items: center; gap: 4px;
@@ -642,6 +650,8 @@ html[dir="rtl"] .pelican-tab { font-family: "Noto Sans Arabic", var(--font-displ
   background: var(--color-surface-raised);
   color: var(--color-text-muted);
   transition: all 0.15s var(--ease-out);
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 .barcode-download:active { transform: scale(0.95); }
 .barcode-download:hover { color: var(--color-text); border-color: rgba(251, 239, 0, 0.15); }
@@ -741,6 +751,9 @@ html[dir="rtl"] .pelican-tab { font-family: "Noto Sans Arabic", var(--font-displ
 /* Barcode card */
 [data-theme="light"] .generator__barcode {
   background: var(--color-surface);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+[data-theme="light"] .barcode-actions {
   border-color: rgba(0, 0, 0, 0.08);
 }
 [data-theme="light"] .barcode-download {

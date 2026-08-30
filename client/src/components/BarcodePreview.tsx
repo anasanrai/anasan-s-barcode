@@ -1,6 +1,7 @@
 import JsBarcode from "jsbarcode";
 import { Download } from "lucide-react";
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { useTheme } from "@/lib/theme";
 
 export type BarcodeFormat = "CODE128" | "EAN13" | "EAN8" | "UPC" | "CODE39" | "ITF14";
 
@@ -9,10 +10,6 @@ type BarcodePreviewProps = {
   format?: BarcodeFormat;
   onError: (message: string) => void;
   onValid?: (valid: boolean) => void;
-  lineColor?: string;
-  background?: string;
-  width?: number;
-  height?: number;
 };
 
 export type BarcodePreviewHandle = {
@@ -30,10 +27,17 @@ const FORMAT_CONFIG: Record<BarcodeFormat, { label: string; pattern: RegExp; des
   ITF14: { label: "ITF-14", pattern: /^\d{13,14}$/, description: "13 or 14 digits" },
 };
 
+function getBarcodeColors(theme: "dark" | "light") {
+  return theme === "dark"
+    ? { lineColor: "#1A0F0A", background: "#FBEF00" }
+    : { lineColor: "#1A0F0A", background: "#FBEF00" };
+}
+
 const BarcodePreview = forwardRef<BarcodePreviewHandle, BarcodePreviewProps>(function BarcodePreview(
-  { value, format = "CODE128", onError, onValid, lineColor, background, width, height },
+  { value, format = "CODE128", onError, onValid },
   ref,
 ) {
+  const { theme } = useTheme();
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [valid, setValid] = useState<boolean | null>(null);
   const onErrorRef = useRef(onError);
@@ -43,13 +47,14 @@ const BarcodePreview = forwardRef<BarcodePreviewHandle, BarcodePreviewProps>(fun
 
   useEffect(() => {
     if (!svgRef.current || !value) return;
+    const colors = getBarcodeColors(theme);
     try {
       JsBarcode(svgRef.current, value, {
         format,
-        lineColor: lineColor ?? "#1A0F0A",
-        background: background ?? "#FBEF00",
-        width: width ?? 2.15,
-        height: height ?? 126,
+        lineColor: colors.lineColor,
+        background: colors.background,
+        width: 2.15,
+        height: 126,
         margin: 12,
         displayValue: false,
         valid: (isValid: boolean) => {
@@ -62,11 +67,12 @@ const BarcodePreview = forwardRef<BarcodePreviewHandle, BarcodePreviewProps>(fun
       onValidRef.current?.(false);
       onErrorRef.current(`Invalid ${FORMAT_CONFIG[format].label} value.`);
     }
-  }, [value, format, lineColor, background, width, height]);
+  }, [value, format, theme]);
 
   const download = () => {
     const svg = svgRef.current;
     if (!svg || !valid) { onError("Barcode not ready."); return; }
+    const colors = getBarcodeColors(theme);
     const serializer = new XMLSerializer();
     const source = serializer.serializeToString(svg);
     const blob = new Blob([source], { type: "image/svg+xml;charset=utf-8" });
@@ -78,7 +84,7 @@ const BarcodePreview = forwardRef<BarcodePreviewHandle, BarcodePreviewProps>(fun
       canvas.height = image.height * 2;
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
-      ctx.fillStyle = background ?? "#FBEF00";
+      ctx.fillStyle = colors.background;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
       URL.revokeObjectURL(url);

@@ -1,35 +1,49 @@
 import QRCode from "qrcode";
 import { Download } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useLang } from "@/lib/i18n";
+import { useTheme } from "@/lib/theme";
 
 type Props = {
   value: string;
   onError: (message: string) => void;
 };
 
+function getQrColors(theme: "dark" | "light") {
+  return theme === "dark"
+    ? { dark: "#1A0F0A", light: "#FBEF00" }
+    : { dark: "#1A0F0A", light: "#FFFFFF" };
+}
+
 export default function QRCodePreview({ value, onError }: Props) {
+  const { t } = useLang();
+  const { theme } = useTheme();
   const [svgHtml, setSvgHtml] = useState("");
+  const onErrorRef = useRef(onError);
+  onErrorRef.current = onError;
 
   useEffect(() => {
     if (!value) { setSvgHtml(""); return; }
+    const colors = getQrColors(theme);
     QRCode.toString(value, {
       type: "svg",
       width: 280,
       margin: 2,
-      color: { dark: "#1A0F0A", light: "#FBEF00" },
+      color: colors,
       errorCorrectionLevel: "M",
     })
       .then((svg) => setSvgHtml(svg))
-      .catch(() => onError("Could not generate QR code."));
-  }, [value, onError]);
+      .catch(() => onErrorRef.current("Could not generate QR code."));
+  }, [value, theme]);
 
   const downloadPng = () => {
     if (!value) return;
+    const colors = getQrColors(theme);
     const canvas = document.createElement("canvas");
     QRCode.toCanvas(canvas, value, {
       width: 560,
       margin: 4,
-      color: { dark: "#1A0F0A", light: "#FBEF00" },
+      color: colors,
       errorCorrectionLevel: "M",
     })
       .then(() => {
@@ -57,7 +71,7 @@ export default function QRCodePreview({ value, onError }: Props) {
       {svgHtml ? (
         <div ref={(el) => { if (el) el.innerHTML = svgHtml; }} className="qr-svg-wrap" />
       ) : (
-        <div className="qr-placeholder">Type something to generate QR</div>
+        <div className="qr-placeholder">{t.typeForQr}</div>
       )}
       {svgHtml && (
         <>
