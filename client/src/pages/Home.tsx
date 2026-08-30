@@ -61,6 +61,19 @@ export default function Home() {
     );
   }
 
+  if (screen === "scan") {
+    return (
+      <main className="pelican-app">
+        <Header />
+        <PelicanScanner onDetected={handleDetected} />
+        <div className="pelican-tabs pelican-tabs--desktop">
+          <button type="button" className="pelican-tab" onClick={handleGoToGenerate}>Generate</button>
+          <button type="button" className="pelican-tab pelican-tab--active">Scan</button>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="pelican-app pelican-app--generator">
       <Header />

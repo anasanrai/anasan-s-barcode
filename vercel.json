@@ -18,6 +18,7 @@
   ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
+    { "source": "/tessdata/(.*)", "destination": "/tessdata/$1" },
     { "source": "/(manifest\\.webmanifest|sw\\.js|icon-192\\.png|icon-512\\.png|og\\.svg|icon\\.svg|hungerstation-logo-shadow\\.[^.]*\\.svg)", "destination": "/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]

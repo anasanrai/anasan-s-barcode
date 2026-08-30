@@ -77,7 +77,7 @@ const strings = {
     digits: (n: number) => `${n} أرقام`,
     tabOrTap: " — Tab أو اضغط على الاقتراح",
     invalid: "غير صالح",
-    notReady: "الباركود جاهز.",
+    notReady: "الباركود غير جاهز.",
     couldNotSave: "تعذري حفظ الباركود.",
     couldNotGenerate: "تعذري إنشاء كود QR.",
     couldNotSaveQr: "تعذري حفظ كود QR.",

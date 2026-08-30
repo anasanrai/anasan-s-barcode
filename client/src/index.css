@@ -233,7 +233,7 @@ button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparen
   border-radius: var(--radius-lg);
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 20px 60px rgba(0, 0, 0, 0.4);
 }
-.pelican-result__barcode .barcode-art svg {
+.pelican-result__barcode .barcode-art > svg {
   width: 100% !important;
   max-height: none !important;
   height: clamp(180px, 40vw, 280px) !important;
@@ -288,7 +288,7 @@ button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparen
 
 /* ——— Shared ——— */
 .barcode-art { max-width: 400px; margin: 0 auto; }
-.barcode-art svg { width: 100%; display: block; }
+.barcode-art > svg { width: 100%; display: block; }
 .barcode-caption { display: block; }
 .download-link {
   color: var(--color-accent); border: 0; background: none;
@@ -453,6 +453,7 @@ html[dir="rtl"] .pelican-tab { font-family: "Noto Sans Arabic", var(--font-displ
 .pelican-app--generator {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   background: var(--color-bg);
+  padding-top: 56px;
 }
 
 .generator {
@@ -615,7 +616,7 @@ html[dir="rtl"] .pelican-tab { font-family: "Noto Sans Arabic", var(--font-displ
   width: fit-content;
   max-width: 100%;
 }
-.generator__barcode .barcode-art svg {
+.generator__barcode .barcode-art > svg {
   width: 100% !important; max-height: none !important;
   height: clamp(100px, 22vw, 160px) !important;
   display: block;
@@ -680,6 +681,9 @@ html[dir="rtl"] .pelican-tab { font-family: "Noto Sans Arabic", var(--font-displ
 [data-theme="light"] .pelican-scan { background: #1a1a1a; }
 
 /* Header */
+[data-theme="light"] .hs-logo__img {
+  filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.12));
+}
 [data-theme="light"] .hs-lang-btn {
   background: rgba(255, 255, 255, 0.9);
   border-color: rgba(0, 0, 0, 0.12);
