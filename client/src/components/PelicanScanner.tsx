@@ -11,8 +11,10 @@ type TWorker = {
   setParameters?: (p: Record<string, string | number>) => Promise<void>;
 };
 let workerPromise: Promise<TWorker> | null = null;
+let workerReady = false;
+
 async function getWorker(): Promise<TWorker> {
-  if (workerPromise) return workerPromise;
+  if (workerPromise && workerReady) return workerPromise;
   workerPromise = (async () => {
     try {
       const { createWorker } = await import("tesseract.js");
@@ -28,33 +30,36 @@ async function getWorker(): Promise<TWorker> {
           classify_bln_numeric_mode: "1" as unknown as number,
         });
       } catch {}
+      workerReady = true;
       return w;
     } catch (e) {
-      // Reset singleton so next call retries instead of returning rejected promise
       workerPromise = null;
+      workerReady = false;
       throw e;
     }
   })();
   return workerPromise;
 }
-// Warm at import time — hides the one-time ~1-2s download before camera opens
+
+// Pre-warm: call immediately on import, then again on idle
 void getWorker().catch(() => {});
+if (typeof requestIdleCallback !== "undefined") {
+  requestIdleCallback(() => void getWorker().catch(() => {}));
+}
+
 async function ocrCanvas(canvas: HTMLCanvasElement): Promise<string> {
   const w = await getWorker();
   const { data } = await w.recognize(canvas);
   return data.text ?? "";
 }
-async function ocrImageSrc(src: string): Promise<string> {
-  const w = await getWorker();
-  const { data } = await w.recognize(src);
-  return data.text ?? "";
-}
-async function serverOcr(canvas: HTMLCanvasElement, timeoutMs = 700): Promise<string | null> {
+
+// Server OCR with tight 200ms timeout — fail fast if NIM not configured
+async function serverOcr(canvas: HTMLCanvasElement): Promise<string | null> {
   try {
     const dataUrl = canvas.toDataURL("image/jpeg", 0.65);
     const b64 = dataUrl.includes(",") ? dataUrl.split(",")[1] : dataUrl;
     const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), timeoutMs);
+    const t = setTimeout(() => ctrl.abort(), 200);
     const res = await fetch("/api/ocr", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -68,6 +73,30 @@ async function serverOcr(canvas: HTMLCanvasElement, timeoutMs = 700): Promise<st
   } catch {
     return null;
   }
+}
+
+// Race server + local OCR — first valid result wins
+async function raceOcr(canvas: HTMLCanvasElement): Promise<string | null> {
+  const serverPromise = serverOcr(canvas);
+  const localPromise = workerReady
+    ? ocrCanvas(canvas).catch(() => null as string | null)
+    : new Promise<null>((r) => setTimeout(() => r(null), 600));
+
+  // Server has 200ms head start — if it wins, use it; otherwise local takes over
+  const result = await Promise.race([
+    serverPromise.then((t) => (t ? { source: "server" as const, text: t } : null)),
+    localPromise.then((t) => (t ? { source: "local" as const, text: t } : null)),
+  ]);
+
+  if (result) return result.text;
+
+  // Both failed — wait for whichever is still running (up to 800ms total)
+  const fallback = await Promise.race([
+    serverPromise,
+    localPromise,
+    new Promise<null>((r) => setTimeout(() => r(null), 800)),
+  ]);
+  return fallback;
 }
 
 // Native BarcodeDetector fast path (hardware-accelerated, instant on Android Chrome/iOS 17+)
@@ -181,9 +210,11 @@ export default function PelicanScanner({ onDetected }: Props) {
       if (caps?.torch) setTorchSupported(true);
       setStarting(false);
 
+      // Pre-warm detector + worker while camera starts
       void getDetector().catch(() => {});
+      void getWorker().catch(() => {});
 
-      // INSTANT sampling: 260ms, native detector → server OCR → local OCR
+      // INSTANT sampling: 260ms — race all OCR paths in parallel
       timerRef.current = window.setInterval(async () => {
         if (busyRef.current) return;
         const v = videoRef.current;
@@ -227,34 +258,14 @@ export default function PelicanScanner({ onDetected }: Props) {
             }
           } catch {}
 
-          // 2) Server OCR instant path (~150-400ms, no client model download)
-          const text = await serverOcr(canvas, 650);
-          if (text != null) {
+          // 2) Race server + local OCR — first valid text wins (~120-300ms)
+          const text = await raceOcr(canvas);
+          if (text) {
             const candidate = extractPelicanNumber(text);
             const confirmed = confirmRef.current.push(candidate);
             if (confirmed) {
               stopCamera();
               onDetectedRef.current(confirmed);
-            }
-            return; // Server responded — skip local OCR this tick
-          }
-
-          // 3) Local OCR fallback — only if server didn't respond (not timeout)
-          try {
-            const localText = await Promise.race([
-              ocrCanvas(canvas),
-              new Promise<string>((_, rej) => setTimeout(() => rej(new Error("local-ocr-timeout")), 900)),
-            ]);
-            const candidate = extractPelicanNumber(localText);
-            const confirmed = confirmRef.current.push(candidate);
-            if (confirmed) {
-              stopCamera();
-              onDetectedRef.current(confirmed);
-            }
-          } catch (err) {
-            // Log timeout silently, surface real errors
-            if (err instanceof Error && err.message !== "local-ocr-timeout") {
-              console.error("[pelican] local ocr error:", err);
             }
           }
         } catch {
@@ -279,6 +290,7 @@ export default function PelicanScanner({ onDetected }: Props) {
     return () => {
       workerPromise?.then((w) => w.terminate().catch(() => {})).catch(() => {});
       workerPromise = null;
+      workerReady = false;
     };
   }, []);
 
@@ -288,7 +300,6 @@ export default function PelicanScanner({ onDetected }: Props) {
     if (!file) return;
     const url = URL.createObjectURL(file);
     try {
-      // Try native detector on image first (instant if it's a photographed barcode)
       try {
         const detector = await getDetector();
         if (detector) {
@@ -364,4 +375,10 @@ export default function PelicanScanner({ onDetected }: Props) {
       </div>
     </div>
   );
+}
+
+async function ocrImageSrc(src: string): Promise<string> {
+  const w = await getWorker();
+  const { data } = await w.recognize(src);
+  return data.text ?? "";
 }
