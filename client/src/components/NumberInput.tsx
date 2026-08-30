@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { BarcodeFormat } from "./BarcodePreview";
 
 type Props = {
   value: string;
@@ -6,11 +7,15 @@ type Props = {
   onSubmit: () => void;
   findMatch: (suffix: string) => string | null;
   placeholder?: string;
+  format?: BarcodeFormat;
 };
 
-export default function NumberInput({ value, onChange, onSubmit, findMatch, placeholder }: Props) {
+const NUMERIC_ONLY = new Set(["EAN13", "EAN8", "UPC", "ITF14"]);
+
+export default function NumberInput({ value, onChange, onSubmit, findMatch, placeholder, format = "CODE128" }: Props) {
   const [suggestion, setSuggestion] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const isNumericOnly = NUMERIC_ONLY.has(format);
 
   useEffect(() => {
     if (value.length >= 4) {
@@ -22,16 +27,16 @@ export default function NumberInput({ value, onChange, onSubmit, findMatch, plac
   }, [value, findMatch]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value.replace(/[^0-9]/g, "");
+    const raw = isNumericOnly
+      ? e.target.value.replace(/[^0-9]/g, "")
+      : e.target.value.replace(/[^A-Za-z0-9\-.\ \$\/\+\%]/g, "").toUpperCase();
     onChange(raw);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      if (suggestion) {
-        onChange(suggestion);
-      }
+      if (suggestion) { onChange(suggestion); }
       onSubmit();
     }
     if (e.key === "Tab" && suggestion) {
@@ -53,13 +58,13 @@ export default function NumberInput({ value, onChange, onSubmit, findMatch, plac
         <input
           ref={inputRef}
           type="text"
-          inputMode="numeric"
-          pattern="[0-9]*"
+          inputMode={isNumericOnly ? "numeric" : "text"}
+          pattern={isNumericOnly ? "[0-9]*" : undefined}
           className="number-input"
           value={value}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
-          placeholder={placeholder ?? "Type last 4-6 digits…"}
+          placeholder={placeholder ?? (isNumericOnly ? "Enter digits…" : "Enter text or digits…")}
           autoComplete="off"
           autoFocus
         />
@@ -69,13 +74,11 @@ export default function NumberInput({ value, onChange, onSubmit, findMatch, plac
           </button>
         )}
       </div>
-      {value.length > 0 && value.length < 14 && (
+      {value.length > 0 && (
         <p className="number-input-hint">
-          {value.length}/14 digits {suggestion ? "— Tab or tap suggestion to autocomplete" : ""}
+          {isNumericOnly ? `${value.length} digits` : `${value.length} chars`}
+          {suggestion ? " — Tab or tap suggestion" : ""}
         </p>
-      )}
-      {value.length === 14 && (
-        <p className="number-input-hint number-input-hint--ok">14 digits — ready</p>
       )}
     </div>
   );

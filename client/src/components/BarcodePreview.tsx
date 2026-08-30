@@ -1,49 +1,71 @@
 import JsBarcode from "jsbarcode";
-import { Download } from "lucide-react";
+import { Download, Check, X } from "lucide-react";
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+
+export type BarcodeFormat = "CODE128" | "EAN13" | "EAN8" | "UPC" | "CODE39" | "ITF14";
 
 type BarcodePreviewProps = {
   value: string;
+  format?: BarcodeFormat;
   onError: (message: string) => void;
+  onValid?: (valid: boolean) => void;
+  lineColor?: string;
+  background?: string;
+  width?: number;
+  height?: number;
 };
 
 export type BarcodePreviewHandle = {
   download: () => void;
+  downloadSvg: () => void;
+  getSvgElement: () => SVGSVGElement | null;
+};
+
+const FORMAT_CONFIG: Record<BarcodeFormat, { label: string; pattern: RegExp; description: string }> = {
+  CODE128: { label: "CODE128", pattern: /^[\x00-\x7F]+$/, description: "Any ASCII text" },
+  EAN13: { label: "EAN-13", pattern: /^\d{12,13}$/, description: "12 or 13 digits" },
+  EAN8: { label: "EAN-8", pattern: /^\d{7,8}$/, description: "7 or 8 digits" },
+  UPC: { label: "UPC-A", pattern: /^\d{11,12}$/, description: "11 or 12 digits" },
+  CODE39: { label: "CODE39", pattern: /^[A-Z0-9\-\.\ \$\/\+\%]+$/, description: "A-Z, 0-9, -.$/+%" },
+  ITF14: { label: "ITF-14", pattern: /^\d{13,14}$/, description: "13 or 14 digits" },
 };
 
 const BarcodePreview = forwardRef<BarcodePreviewHandle, BarcodePreviewProps>(function BarcodePreview(
-  { value, onError },
+  { value, format = "CODE128", onError, onValid, lineColor, background, width, height },
   ref,
 ) {
-  const barcodeRef = useRef<SVGSVGElement | null>(null);
-  const [ready, setReady] = useState(false);
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const [valid, setValid] = useState<boolean | null>(null);
 
   useEffect(() => {
-    if (!barcodeRef.current || !value) return;
+    if (!svgRef.current || !value) return;
     try {
-      JsBarcode(barcodeRef.current, value, {
-        format: "CODE128",
-        lineColor: "#07111f",
-        background: "#f7fbff",
-        width: 2.15,
-        height: 126,
+      JsBarcode(svgRef.current, value, {
+        format,
+        lineColor: lineColor ?? "#07111f",
+        background: background ?? "#ffffff",
+        width: width ?? 2.15,
+        height: height ?? 126,
         margin: 12,
         displayValue: false,
+        valid: (isValid: boolean) => {
+          setValid(isValid);
+          onValid?.(isValid);
+        },
       });
-      setReady(true);
+      if (!valid) {
+        onError(`Invalid ${FORMAT_CONFIG[format].label} value.`);
+      }
     } catch {
-      setReady(false);
-      onError("The barcode could not be rendered. Try another number.");
+      setValid(false);
+      onValid?.(false);
+      onError(`Invalid ${FORMAT_CONFIG[format].label} value.`);
     }
-  }, [onError, value]);
+  }, [value, format, lineColor, background, width, height, onError, onValid, valid]);
 
   const download = () => {
-    const svg = barcodeRef.current;
-    if (!svg || !ready) {
-      onError("The barcode preview is not ready to save yet.");
-      return;
-    }
-
+    const svg = svgRef.current;
+    if (!svg || !valid) { onError("Barcode not ready."); return; }
     const serializer = new XMLSerializer();
     const source = serializer.serializeToString(svg);
     const blob = new Blob([source], { type: "image/svg+xml;charset=utf-8" });
@@ -53,35 +75,60 @@ const BarcodePreview = forwardRef<BarcodePreviewHandle, BarcodePreviewProps>(fun
       const canvas = document.createElement("canvas");
       canvas.width = image.width * 2;
       canvas.height = image.height * 2;
-      const context = canvas.getContext("2d");
-      if (!context) return;
-      context.fillStyle = "#f7fbff";
-      context.fillRect(0, 0, canvas.width, canvas.height);
-      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.fillStyle = background ?? "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
       URL.revokeObjectURL(url);
       const link = document.createElement("a");
       link.download = `barcode-${value}.png`;
       link.href = canvas.toDataURL("image/png");
       link.click();
     };
-    image.onerror = () => {
-      URL.revokeObjectURL(url);
-      onError("The barcode image could not be saved.");
-    };
+    image.onerror = () => { URL.revokeObjectURL(url); onError("Could not save barcode."); };
     image.src = url;
   };
 
-  useImperativeHandle(ref, () => ({ download }));
+  const downloadSvg = () => {
+    const svg = svgRef.current;
+    if (!svg || !valid) { onError("Barcode not ready."); return; }
+    const serializer = new XMLSerializer();
+    const source = serializer.serializeToString(svg);
+    const blob = new Blob([source], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.download = `barcode-${value}.svg`;
+    link.href = url;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  useImperativeHandle(ref, () => ({ download, downloadSvg, getSvgElement: () => svgRef.current }));
 
   return (
-    <div className="barcode-art" aria-label={`Code 128 barcode for ${value}`}>
-      <svg ref={barcodeRef} role="img" />
-      <span className="barcode-caption">{value}</span>
-      <button className="download-link" type="button" onClick={download}>
-        <Download size={16} /> Save PNG
-      </button>
+    <div className="barcode-art" aria-label={`${FORMAT_CONFIG[format].label} barcode for ${value}`}>
+      <svg ref={svgRef} role="img" />
+      <div className="barcode-meta">
+        <span className="barcode-caption">{value}</span>
+        {valid !== null && (
+          <span className={`barcode-validity ${valid ? "barcode-validity--ok" : "barcode-validity--err"}`}>
+            {valid ? <Check size={12} /> : <X size={12} />}
+            {valid ? FORMAT_CONFIG[format].label : "Invalid"}
+          </span>
+        )}
+      </div>
+      <div className="barcode-actions">
+        <button className="barcode-download" type="button" onClick={download}>
+          <Download size={14} /> PNG
+        </button>
+        <button className="barcode-download" type="button" onClick={downloadSvg}>
+          <Download size={14} /> SVG
+        </button>
+      </div>
     </div>
   );
 });
 
 export default BarcodePreview;
+export { FORMAT_CONFIG };

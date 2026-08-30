@@ -419,6 +419,34 @@ button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparen
   margin: 0;
 }
 
+/* Format picker */
+.generator__formats {
+  display: flex; gap: 6px; flex-wrap: wrap; justify-content: center;
+}
+.generator__format-btn {
+  font-family: var(--font-mono);
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 7px 14px; border-radius: var(--radius-pill);
+  border: 1.5px solid rgba(255, 255, 255, 0.08);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  transition: all 0.15s var(--ease-out);
+}
+.generator__format-btn--active {
+  border-color: var(--color-accent);
+  background: var(--color-accent-dim);
+  color: var(--color-accent);
+}
+.generator__format-btn:not(.generator__format-btn--active):hover {
+  border-color: rgba(255, 255, 255, 0.15);
+  color: var(--color-text);
+}
+.generator__format-desc {
+  font-size: 12px; color: var(--color-text-muted);
+  text-align: center; margin: 0;
+}
+
 /* Number Input */
 .number-input-wrap { width: 100%; }
 .number-input-row {
@@ -493,13 +521,37 @@ button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparen
   height: clamp(140px, 30vw, 220px) !important;
   display: block;
 }
-.generator__barcode .barcode-caption {
+.barcode-meta {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  margin-top: 10px; width: 100%;
+}
+.barcode-caption {
   font-family: var(--font-mono);
   font-size: 12px; font-weight: 600;
   letter-spacing: 0.12em;
   color: var(--color-text-muted);
-  margin-top: 10px;
 }
+.barcode-validity {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 600;
+  padding: 3px 8px; border-radius: var(--radius-pill);
+}
+.barcode-validity--ok { color: var(--color-success); background: rgba(52, 211, 153, 0.1); }
+.barcode-validity--err { color: var(--color-error); background: rgba(248, 113, 113, 0.1); }
+.barcode-actions {
+  display: flex; gap: 8px; margin-top: 10px;
+}
+.barcode-download {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12px; font-weight: 600;
+  padding: 7px 14px; border-radius: var(--radius-pill);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--color-surface-raised);
+  color: var(--color-text-muted);
+  transition: all 0.15s var(--ease-out);
+}
+.barcode-download:active { transform: scale(0.95); }
+.barcode-download:hover { color: var(--color-text); border-color: rgba(255, 255, 255, 0.15); }
 .generator__number {
   font-family: var(--font-mono);
   font-size: 13px; font-weight: 600;
