@@ -47,19 +47,60 @@ if (typeof requestIdleCallback !== "undefined") {
   requestIdleCallback(() => void getWorker().catch(() => {}));
 }
 
+// Preprocess canvas for OCR: grayscale + contrast boost + threshold
+// Dramatically improves accuracy on screen photos with glare/low contrast
+function preprocessForOcr(src: HTMLCanvasElement): HTMLCanvasElement {
+  const w = src.width;
+  const h = src.height;
+  const offscreen = document.createElement("canvas");
+  offscreen.width = w;
+  offscreen.height = h;
+  const ctx = offscreen.getContext("2d", { willReadFrequently: true });
+  if (!ctx) return src;
+  ctx.drawImage(src, 0, 0);
+  const img = ctx.getImageData(0, 0, w, h);
+  const d = img.data;
+  // Pass 1: convert to grayscale
+  for (let i = 0; i < d.length; i += 4) {
+    const gray = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
+    d[i] = d[i + 1] = d[i + 2] = gray;
+  }
+  // Pass 2: find min/max for adaptive contrast
+  let min = 255, max = 0;
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i] < min) min = d[i];
+    if (d[i] > max) max = d[i];
+  }
+  const range = max - min || 1;
+  // Pass 3: stretch contrast + threshold for clean B/W
+  const threshold = 140; // screen text is usually dark on light
+  for (let i = 0; i < d.length; i += 4) {
+    // Contrast stretch to full range
+    let v = ((d[i] - min) / range) * 255;
+    // Adaptive threshold: if close to mid-range, push to black or white
+    v = v < threshold ? Math.max(0, v * 0.3) : Math.min(255, 128 + v * 0.5);
+    d[i] = d[i + 1] = d[i + 2] = v;
+  }
+  ctx.putImageData(img, 0, 0);
+  return offscreen;
+}
+
 async function ocrCanvas(canvas: HTMLCanvasElement): Promise<string> {
   const w = await getWorker();
-  const { data } = await w.recognize(canvas);
+  const preprocessed = preprocessForOcr(canvas);
+  const { data } = await w.recognize(preprocessed);
   return data.text ?? "";
 }
 
-// Server OCR with tight 200ms timeout — fail fast if NIM not configured
+// Server OCR with tight timeout — fail fast if NIM not configured
 async function serverOcr(canvas: HTMLCanvasElement): Promise<string | null> {
   try {
-    const dataUrl = canvas.toDataURL("image/jpeg", 0.65);
+    // Preprocess before sending to server for better OCR accuracy
+    const preprocessed = preprocessForOcr(canvas);
+    const dataUrl = preprocessed.toDataURL("image/jpeg", 0.85);
     const b64 = dataUrl.includes(",") ? dataUrl.split(",")[1] : dataUrl;
     const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 200);
+    const t = setTimeout(() => ctrl.abort(), 500);
     const res = await fetch("/api/ocr", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

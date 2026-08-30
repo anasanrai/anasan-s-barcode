@@ -1,11 +1,13 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 function extractTextFromNimResponse(j: unknown): string {
-  // ai.api.nvidia.com CV format: { data: [{ text_detections: [{text, confidence, bbox}...] }] }
+  // paddleocr / nemoretriever-ocr format: { data: [{ text_detections: [{text_prediction:{text,confidence}, bounding_box}...] }] }
   if (j && typeof j === "object" && "data" in j) {
-    const data = (j as { data?: Array<{ text_detections?: Array<{ text?: string }> }> }).data;
+    const data = (j as { data?: Array<{ text_detections?: Array<{ text_prediction?: { text?: string }; text?: string }> }> }).data;
     if (Array.isArray(data) && data[0]?.text_detections) {
-      return data[0].text_detections.map((d) => d.text ?? "").join("\n");
+      return data[0].text_detections
+        .map((d) => d.text_prediction?.text ?? d.text ?? "")
+        .join("\n");
     }
   }
   // integrate nemotron-parse tool_calls format
@@ -44,42 +46,47 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(400).json({ error: "missing image" });
     return;
   }
-  // Strip data URL prefix if present — use regex to handle any image type
+  // Strip data URL prefix if present
   const b64 = image.replace(/^data:image\/\w+;base64,/, "");
   const dataUrl = `data:image/jpeg;base64,${b64}`;
 
-  // Prefer NIM if key is set — nemoretriever-ocr (instant, handles screen glare)
+  // NIM OCR — paddleocr is the proven endpoint (99% confidence, ~600ms)
+  // nemoretriever-ocr returns EMPTY (it's document retrieval, not OCR)
   const nimKey = process.env.NIM_API_KEY;
   const nimUrl =
-    process.env.NIM_OCR_URL || (nimKey ? "https://ai.api.nvidia.com/v1/cv/nvidia/nemoretriever-ocr" : null);
+    process.env.NIM_OCR_URL || (nimKey ? "https://ai.api.nvidia.com/v1/cv/baidu/paddleocr" : null);
 
   if (nimKey && nimUrl) {
-    // If user provided paddle endpoint, use only that; otherwise prefer nemoretriever then fallback to paddle
-    const endpoints = nimUrl.includes("paddle") ? [nimUrl] : [nimUrl, "https://ai.api.nvidia.com/v1/cv/baidu/paddleocr"];
-    for (const url of endpoints) {
-      try {
-        const r = await fetch(url, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${nimKey}`, "Content-Type": "application/json", Accept: "application/json" },
-          body: JSON.stringify({ input: [{ type: "image_url", url: dataUrl }] }),
-        });
-        // Auth errors = bad key — fail fast, don't fall through to slow tesseract
-        if (r.status === 401 || r.status === 403) {
-          res.status(500).json({ error: "nvidia auth failed — check NIM_API_KEY", status: r.status });
-          return;
-        }
-        if (!r.ok) continue;
+    const start = Date.now();
+    try {
+      const r = await fetch(nimUrl, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${nimKey}`, "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ input: [{ type: "image_url", url: dataUrl }] }),
+      });
+      const elapsed = Date.now() - start;
+      if (r.status === 401 || r.status === 403) {
+        console.error(`[ocr] NIM auth failed: ${r.status} (${elapsed}ms)`);
+        res.status(500).json({ error: "nvidia auth failed — check NIM_API_KEY", status: r.status });
+        return;
+      }
+      if (!r.ok) {
+        console.error(`[ocr] NIM ${r.status} (${elapsed}ms)`);
+      } else {
         const j = await r.json();
         const text = extractTextFromNimResponse(j);
+        console.log(`[ocr] NIM OK ${elapsed}ms text="${text?.slice(0, 60)}"`);
         if (text && text.trim()) {
           res.status(200).json({ text });
           return;
         }
-      } catch {}
+      }
+    } catch (e) {
+      console.error(`[ocr] NIM error:`, e);
     }
   }
 
-  // Fallback: local tesseract.js (uses CDN fast data, ~1-2s cold, ~400ms warm)
+  // Fallback: local tesseract.js
   try {
     const { createWorker } = await import("tesseract.js");
     const worker: unknown = await (createWorker as unknown as (lang: string, oem: number, opts: unknown) => Promise<unknown>)("eng", 1, {
