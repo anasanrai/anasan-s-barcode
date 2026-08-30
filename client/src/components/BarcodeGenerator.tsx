@@ -4,12 +4,14 @@ import QRCodePreview from "./QRCodePreview";
 import NumberInput from "./NumberInput";
 import { useNumberHistory } from "@/lib/useNumberHistory";
 import { PELICAN_LENGTH } from "@/lib/pelican";
+import { useLang } from "@/lib/i18n";
 
 const FORMAT_OPTIONS = Object.keys(FORMAT_CONFIG) as BarcodeFormat[];
 
 type Props = { onScan?: () => void };
 
 export default function BarcodeGenerator({ onScan }: Props) {
+  const { t } = useLang();
   const [input, setInput] = useState("");
   const [format, setFormat] = useState<BarcodeFormat>("CODE128");
   const [mode, setMode] = useState<"barcode" | "qr">("barcode");
@@ -25,7 +27,7 @@ export default function BarcodeGenerator({ onScan }: Props) {
   const displayValue = input.length > 0 ? (resolvedNumber || input) : "";
 
   const handleNumberSubmit = () => {
-    if (!displayValue) { setError("Enter a number to generate."); return; }
+    if (!displayValue) { setError(t.notReady); return; }
     setError("");
     addNumber(displayValue);
   };
@@ -33,8 +35,8 @@ export default function BarcodeGenerator({ onScan }: Props) {
   return (
     <div className="generator">
       <div className="generator__header">
-        <h1 className="generator__title">HungerTag</h1>
-        <p className="generator__subtitle">Scan. Generate. Done.</p>
+        <h1 className="generator__title">{t.title}</h1>
+        <p className="generator__subtitle">{t.subtitle}</p>
       </div>
 
       <div className="generator__mode-switch">
@@ -43,14 +45,14 @@ export default function BarcodeGenerator({ onScan }: Props) {
           className={`generator__mode-btn ${mode === "barcode" ? "generator__mode-btn--active" : ""}`}
           onClick={() => setMode("barcode")}
         >
-          Barcode
+          {t.barcode}
         </button>
         <button
           type="button"
           className={`generator__mode-btn ${mode === "qr" ? "generator__mode-btn--active" : ""}`}
           onClick={() => setMode("qr")}
         >
-          QR Code
+          {t.qrCode}
         </button>
       </div>
 
@@ -79,7 +81,7 @@ export default function BarcodeGenerator({ onScan }: Props) {
         onSubmit={handleNumberSubmit}
         findMatch={findMatch}
         format={format}
-        placeholder={mode === "qr" ? "Enter text or URL…" : format === "CODE128" ? "Enter text or digits…" : "Enter digits…"}
+        placeholder={mode === "qr" ? t.enterTextOrUrl : format === "CODE128" ? t.enterText : t.enterDigits}
       />
 
       {error && <p className="generator__error">{error}</p>}
@@ -104,7 +106,7 @@ export default function BarcodeGenerator({ onScan }: Props) {
 
       {onScan && (
         <button type="button" className="generator__switch" onClick={onScan}>
-          Switch to Scanner
+          {t.switchToScanner}
         </button>
       )}
     </div>

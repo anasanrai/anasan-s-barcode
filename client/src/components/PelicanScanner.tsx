@@ -1,6 +1,7 @@
 import { Flashlight, ImageUp, Camera, Scan } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { extractPelicanNumber, FrameConfirmation } from "@/lib/pelican";
+import { useLang } from "@/lib/i18n";
 
 type Props = { onDetected: (value: string) => void };
 
@@ -162,6 +163,7 @@ function getDetector(): Promise<BarcodeDetectorInstance | null> {
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function PelicanScanner({ onDetected }: Props) {
+  const { t } = useLang();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -420,23 +422,23 @@ export default function PelicanScanner({ onDetected }: Props) {
 
       <div className="pelican-overlay" aria-hidden="true">
         <div className="pelican-rect" />
-        <p className="pelican-hint">Point at barcode number.</p>
+        <p className="pelican-hint">{t.pointAtBarcode}</p>
       </div>
 
       {torchSupported && !needsGesture && (
         <button type="button" className={`pelican-torch ${torchError ? "pelican-torch--error" : ""}`} onClick={() => void toggleTorch()} aria-label="Toggle flash">
-          <Flashlight size={16} /> {torchError ? "Flash unavailable" : torchOn ? "Flash on" : "Flash"}
+          <Flashlight size={16} /> {torchError ? t.flashUnavailable : torchOn ? t.flashOn : t.flashOff}
         </button>
       )}
 
       {needsGesture && (
         <button type="button" className="pelican-tap" onClick={handleGestureTap}>
-          <Camera size={22} /> Tap to start camera
+          <Camera size={22} /> {t.tapToStart}
         </button>
       )}
 
       {starting && !needsGesture && !cameraError && (
-        <div className="pelican-starting" aria-hidden="true">Starting camera…</div>
+        <div className="pelican-starting" aria-hidden="true">{t.startingCamera}</div>
       )}
 
       {!starting && !needsGesture && !cameraError && (
@@ -447,15 +449,15 @@ export default function PelicanScanner({ onDetected }: Props) {
           disabled={capturing}
           aria-label="Capture now"
         >
-          <Scan size={18} /> {capturing ? "Scanning…" : "Capture"}
+          <Scan size={18} /> {capturing ? t.capturing : t.capture}
         </button>
       )}
 
       <div className="pelican-fallback">
         <button type="button" className="button button--secondary pelican-upload" onClick={() => fileInputRef.current?.click()}>
-          <ImageUp size={16} /> Upload image
+          <ImageUp size={16} /> {t.uploadImage}
         </button>
-        {cameraError && <span className="pelican-fallback__note">Camera unavailable — upload a photo.</span>}
+        {cameraError && <span className="pelican-fallback__note">{t.cameraUnavailable}</span>}
         <input ref={fileInputRef} type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => void onImageSelected(e)} />
       </div>
     </div>

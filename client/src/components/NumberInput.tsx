@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { BarcodeFormat } from "./BarcodePreview";
+import { useLang } from "@/lib/i18n";
 
 type Props = {
   value: string;
@@ -13,6 +14,7 @@ type Props = {
 const NUMERIC_ONLY = new Set(["EAN13", "EAN8", "UPC", "ITF14"]);
 
 export default function NumberInput({ value, onChange, onSubmit, findMatch, placeholder, format = "CODE128" }: Props) {
+  const { t } = useLang();
   const [suggestion, setSuggestion] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const isNumericOnly = NUMERIC_ONLY.has(format);
@@ -64,7 +66,7 @@ export default function NumberInput({ value, onChange, onSubmit, findMatch, plac
           value={value}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
-          placeholder={placeholder ?? (isNumericOnly ? "Enter digits…" : "Enter text or digits…")}
+          placeholder={placeholder ?? (isNumericOnly ? t.enterDigits : t.enterText)}
           autoComplete="off"
           autoFocus
         />
@@ -76,8 +78,8 @@ export default function NumberInput({ value, onChange, onSubmit, findMatch, plac
       </div>
       {value.length > 0 && (
         <p className="number-input-hint">
-          {isNumericOnly ? `${value.length} digits` : `${value.length} chars`}
-          {suggestion ? " — Tab or tap suggestion" : ""}
+          {isNumericOnly ? t.digits(value.length) : t.chars(value.length)}
+          {suggestion ? t.tabOrTap : ""}
         </p>
       )}
     </div>

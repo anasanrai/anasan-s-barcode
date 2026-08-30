@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;600;700&family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
 
 /* ——— Design Tokens ——— */
@@ -28,6 +28,7 @@
 *, *::before, *::after { box-sizing: border-box; }
 html, body { margin: 0; background: var(--color-bg); min-width: 320px; -webkit-text-size-adjust: 100%; }
 body { font-family: var(--font-display); color: var(--color-text); overscroll-behavior: none; -webkit-font-smoothing: antialiased; }
+html[lang="ar"] body { font-family: "Noto Sans Arabic", var(--font-display); }
 button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; border: 0; background: none; color: inherit; }
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 
@@ -298,15 +299,32 @@ button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparen
   .pelican-result { animation: none !important; }
 }
 
-/* ——— Install (PWA) ——— */
-.install-control {
-  position: absolute; top: calc(12px + env(safe-area-inset-top)); left: 14px; z-index: 4;
+/* ——— Header ——— */
+.hs-header {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 10;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
 }
-.pelican-result .install-control { position: fixed; }
-.install-trigger {
-  display: inline-flex; align-items: center; gap: 6px;
-  min-height: 36px; padding: 0 14px;
-  border-radius: var(--radius-pill);
+.hs-logo {
+  display: flex; align-items: center; gap: 10px;
+  text-decoration: none;
+}
+.hs-logo__img {
+  width: 36px; height: 36px; flex-shrink: 0;
+  filter: drop-shadow(0 2px 8px rgba(251, 239, 0, 0.3));
+}
+.hs-logo__text {
+  font-family: var(--font-display);
+  font-size: 18px; font-weight: 700;
+  color: var(--color-text);
+  letter-spacing: -0.02em;
+}
+.hs-header__actions {
+  display: flex; align-items: center; gap: 8px;
+}
+.hs-lang-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 7px 12px; border-radius: var(--radius-pill);
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(12, 12, 18, 0.65);
   color: rgba(255, 255, 255, 0.85);
@@ -314,41 +332,44 @@ button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparen
   backdrop-filter: blur(16px);
   transition: all 0.15s var(--ease-out);
 }
-.install-trigger:active { transform: scale(0.95); }
-.pelican-result .install-trigger {
-  background: var(--color-surface-raised);
-  color: var(--color-text);
-  border-color: rgba(255, 255, 255, 0.08);
+.hs-lang-btn:active { transform: scale(0.95); }
+.hs-install-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px; border-radius: var(--radius-pill);
+  border: 1px solid rgba(251, 239, 0, 0.25);
+  background: var(--color-accent);
+  color: var(--color-bg);
+  font-size: 12px; font-weight: 700;
+  transition: all 0.15s var(--ease-out);
 }
+.hs-install-btn:active { transform: scale(0.95); }
+.hs-overlay {
+  position: fixed; inset: 0; z-index: 20;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex; align-items: center; justify-content: center;
+  animation: overlay-in 0.2s ease;
+}
+@keyframes overlay-in {
+  from { opacity: 0; } to { opacity: 1; }
+}
+
+/* ——— Install Sheet (inside overlay) ——— */
 .install-sheet {
-  position: absolute; left: 0; top: calc(100% + 10px);
-  width: min(300px, calc(100vw - 28px));
-  padding: 20px 18px 18px;
+  position: relative;
+  width: min(300px, calc(100vw - 48px));
+  padding: 24px 20px 20px;
   border-radius: var(--radius-lg);
-  color: #c2d5e2;
+  color: var(--color-text-muted);
   background: var(--color-surface-raised);
   border: 1px solid rgba(255, 255, 255, 0.06);
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
   font-size: 0.82rem; line-height: 1.55;
-  animation: sheet-enter 0.2s var(--ease-out);
-}
-@keyframes sheet-enter {
-  from { opacity: 0; transform: translateY(-6px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.pelican-result .install-sheet {
-  background: var(--color-surface-raised);
-  color: var(--color-text-muted);
-  border-color: rgba(255, 255, 255, 0.06);
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
 }
 .install-sheet strong {
-  display: block; color: #f1f5f9; font-size: 0.9rem; font-weight: 700; margin-bottom: 8px;
+  display: block; color: var(--color-text); font-size: 0.9rem; font-weight: 700; margin-bottom: 8px;
 }
-.pelican-result .install-sheet strong { color: var(--color-text); }
 .install-sheet p { margin: 0; }
 .install-sheet b { color: var(--color-accent); }
-.pelican-result .install-sheet b { color: var(--color-accent); }
 .install-sheet__icon {
   display: inline-grid; place-items: center;
   width: 32px; height: 32px; margin-bottom: 10px;
@@ -356,18 +377,41 @@ button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparen
   color: var(--color-accent);
   background: var(--color-accent-dim);
 }
-.pelican-result .install-sheet__icon { background: var(--color-accent-dim); color: var(--color-accent); }
 .install-sheet__close {
   position: absolute; top: 10px; right: 10px;
   width: 28px; height: 28px;
   display: grid; place-items: center;
   border-radius: 8px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--color-text-muted);
   transition: color 0.15s ease;
 }
-.install-sheet__close:hover { color: rgba(255, 255, 255, 0.7); }
-.pelican-result .install-sheet__close { color: var(--color-text-muted); }
-.pelican-result .install-sheet__close:hover { color: var(--color-text); }
+.install-sheet__close:hover { color: var(--color-text); }
+
+/* ——— RTL ——— */
+html[dir="rtl"] .generator__mode-switch { direction: ltr; }
+html[dir="rtl"] .generator__formats { direction: ltr; }
+html[dir="rtl"] .number-input { direction: ltr; text-align: right; font-variant-numeric: tabular-nums; }
+html[dir="rtl"] .pelican-overlay { direction: rtl; }
+html[dir="rtl"] .pelican-hint { direction: rtl; }
+html[dir="rtl"] .generator__header { direction: rtl; }
+html[dir="rtl"] .generator__title { direction: rtl; font-family: "Noto Sans Arabic", var(--font-display); }
+html[dir="rtl"] .generator__subtitle { direction: rtl; font-family: "Noto Sans Arabic", var(--font-display); }
+html[dir="rtl"] .generator__format-desc { direction: rtl; font-family: "Noto Sans Arabic", var(--font-display); }
+html[dir="rtl"] .generator__switch { direction: rtl; font-family: "Noto Sans Arabic", var(--font-display); }
+html[dir="rtl"] .generator__error { direction: rtl; font-family: "Noto Sans Arabic", var(--font-display); }
+html[dir="rtl"] .generator__number { direction: ltr; }
+html[dir="rtl"] .number-input-hint { direction: rtl; font-family: "Noto Sans Arabic", var(--font-display); }
+html[dir="rtl"] .pelican-fallback__note { direction: rtl; font-family: "Noto Sans Arabic", var(--font-display); }
+html[dir="rtl"] .install-sheet { direction: rtl; font-family: "Noto Sans Arabic", var(--font-display); }
+html[dir="rtl"] .pelican-starting { direction: rtl; font-family: "Noto Sans Arabic", var(--font-display); }
+html[dir="rtl"] .pelican-tap { direction: rtl; font-family: "Noto Sans Arabic", var(--font-display); }
+html[dir="rtl"] .pelican-manual { direction: rtl; font-family: "Noto Sans Arabic", var(--font-display); }
+html[dir="rtl"] .pelican-upload { direction: rtl; font-family: "Noto Sans Arabic", var(--font-display); }
+html[dir="rtl"] .pelican-torch { direction: rtl; font-family: "Noto Sans Arabic", var(--font-display); }
+html[dir="rtl"] .pelican-tab { font-family: "Noto Sans Arabic", var(--font-display); }
+
+/* ——— Install (PWA) — legacy, now inside header ——— */
+.install-control { display: none; }
 
 /* ——— Tab Switcher ——— */
 .pelican-tabs {

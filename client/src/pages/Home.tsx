@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import BarcodeGenerator from "@/components/BarcodeGenerator";
-import InstallApp from "@/components/InstallApp";
 import PelicanScanner from "@/components/PelicanScanner";
+import Header from "@/components/Header";
 import { useNumberHistory } from "@/lib/useNumberHistory";
 
 function useIsMobile() {
@@ -40,7 +40,6 @@ export default function Home() {
       <>
         {screen === "scan" && (
           <main className="pelican-app">
-            <InstallApp />
             <PelicanScanner onDetected={handleDetected} />
             <div className="pelican-tabs">
               <button type="button" className="pelican-tab pelican-tab--active">Scan</button>
@@ -50,7 +49,7 @@ export default function Home() {
         )}
         {screen === "generate" && (
           <main className="pelican-app pelican-app--generator">
-            <InstallApp />
+            <Header />
             <BarcodeGenerator onScan={handleGoToScan} />
             <div className="pelican-tabs">
               <button type="button" className="pelican-tab" onClick={handleGoToScan}>Scan</button>
@@ -64,7 +63,7 @@ export default function Home() {
 
   return (
     <main className="pelican-app pelican-app--generator">
-      <InstallApp />
+      <Header />
       <BarcodeGenerator onScan={handleGoToScan} />
       <div className="pelican-tabs pelican-tabs--desktop">
         <button type="button" className="pelican-tab pelican-tab--active">Generate</button>
