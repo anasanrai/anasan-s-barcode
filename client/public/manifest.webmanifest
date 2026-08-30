@@ -1,6 +1,6 @@
 {
-  "name": "HungerTag",
-  "short_name": "HungerTag",
+  "name": "HungerStation Barcode",
+  "short_name": "HS Barcode",
   "description": "Scan barcodes, generate Code 128, EAN, UPC, and QR codes instantly. On-device OCR, no server upload.",
   "start_url": "/",
   "scope": "/",

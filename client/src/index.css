@@ -334,22 +334,22 @@ button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparen
 }
 .hs-lang-btn {
   display: inline-flex; align-items: center; gap: 5px;
-  padding: 7px 12px; border-radius: var(--radius-pill);
+  padding: 8px 14px; border-radius: var(--radius-pill);
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(12, 12, 18, 0.65);
   color: rgba(255, 255, 255, 0.85);
-  font-size: 12px; font-weight: 600;
+  font-size: 13px; font-weight: 600;
   backdrop-filter: blur(16px);
   transition: all 0.15s var(--ease-out);
 }
 .hs-lang-btn:active { transform: scale(0.95); }
 .hs-install-btn {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 7px 14px; border-radius: var(--radius-pill);
+  padding: 8px 16px; border-radius: var(--radius-pill);
   border: 1px solid rgba(251, 239, 0, 0.25);
   background: var(--color-accent);
   color: var(--color-bg);
-  font-size: 12px; font-weight: 700;
+  font-size: 13px; font-weight: 700;
   transition: all 0.15s var(--ease-out);
 }
 .hs-install-btn:active { transform: scale(0.95); }
@@ -437,9 +437,9 @@ html[dir="rtl"] .pelican-tab { font-family: "Noto Sans Arabic", var(--font-displ
   position: fixed; bottom: 20px;
 }
 .pelican-tab {
-  padding: 10px 24px;
+  padding: 10px 26px;
   border-radius: var(--radius-pill);
-  font-size: 13px; font-weight: 600;
+  font-size: 14px; font-weight: 600;
   color: rgba(255, 255, 255, 0.5);
   transition: all 0.2s var(--ease-out);
 }
@@ -463,13 +463,13 @@ html[dir="rtl"] .pelican-tab { font-family: "Noto Sans Arabic", var(--font-displ
 .generator__header { text-align: center; }
 .generator__title {
   font-family: var(--font-display);
-  font-size: 24px; font-weight: 700;
+  font-size: 28px; font-weight: 700;
   color: var(--color-text);
-  margin: 0 0 4px;
+  margin: 0 0 6px;
   letter-spacing: -0.02em;
 }
 .generator__subtitle {
-  font-size: 14px; color: var(--color-text-muted);
+  font-size: 16px; color: var(--color-text-muted);
   margin: 0;
 }
 
@@ -482,8 +482,8 @@ html[dir="rtl"] .pelican-tab { font-family: "Noto Sans Arabic", var(--font-displ
   padding: 3px;
 }
 .generator__mode-btn {
-  font-size: 13px; font-weight: 600;
-  padding: 8px 20px; border-radius: var(--radius-pill);
+  font-size: 14px; font-weight: 600;
+  padding: 9px 22px; border-radius: var(--radius-pill);
   color: rgba(255, 255, 255, 0.45);
   transition: all 0.2s var(--ease-out);
 }
@@ -519,9 +519,9 @@ html[dir="rtl"] .pelican-tab { font-family: "Noto Sans Arabic", var(--font-displ
 }
 .generator__format-btn {
   font-family: var(--font-mono);
-  font-size: 11px; font-weight: 600;
+  font-size: 12px; font-weight: 600;
   letter-spacing: 0.04em;
-  padding: 7px 14px; border-radius: var(--radius-pill);
+  padding: 8px 16px; border-radius: var(--radius-pill);
   border: 1.5px solid rgba(255, 255, 255, 0.08);
   background: var(--color-surface);
   color: var(--color-text-muted);
@@ -537,7 +537,7 @@ html[dir="rtl"] .pelican-tab { font-family: "Noto Sans Arabic", var(--font-displ
   color: var(--color-text);
 }
 .generator__format-desc {
-  font-size: 12px; color: var(--color-text-muted);
+  font-size: 13px; color: var(--color-text-muted);
   text-align: center; margin: 0;
 }
 
@@ -549,9 +549,9 @@ html[dir="rtl"] .pelican-tab { font-family: "Noto Sans Arabic", var(--font-displ
 .number-input {
   flex: 1;
   font-family: var(--font-mono);
-  font-size: 18px; font-weight: 600;
+  font-size: 20px; font-weight: 600;
   letter-spacing: 0.08em;
-  padding: 12px 16px;
+  padding: 14px 18px;
   border-radius: var(--radius-md);
   border: 1.5px solid rgba(255, 255, 255, 0.1);
   background: var(--color-surface);
@@ -576,7 +576,7 @@ html[dir="rtl"] .pelican-tab { font-family: "Noto Sans Arabic", var(--font-displ
 }
 .number-suggestion:active { transform: scale(0.96); }
 .number-input-hint {
-  font-size: 12px; color: var(--color-text-muted);
+  font-size: 13px; color: var(--color-text-muted);
   margin: 8px 0 0;
 }
 .number-input-hint--ok { color: var(--color-success); }
@@ -608,12 +608,13 @@ html[dir="rtl"] .pelican-tab { font-family: "Noto Sans Arabic", var(--font-displ
   background: var(--color-surface);
   border: 1px solid rgba(251, 239, 0, 0.06);
   border-radius: var(--radius-lg);
-  padding: 16px 14px 12px;
+  padding: 20px 16px 14px;
   display: flex; flex-direction: column; align-items: center;
 }
 .generator__barcode .barcode-art {
   max-width: 100%;
   width: 100%;
+  text-align: center;
 }
 .generator__barcode .barcode-art svg {
   width: 100% !important; max-height: none !important;
@@ -622,30 +623,29 @@ html[dir="rtl"] .pelican-tab { font-family: "Noto Sans Arabic", var(--font-displ
 }
 .barcode-meta {
   display: flex; align-items: center; justify-content: center; gap: 8px;
-  margin-top: 6px; width: 100%;
+  margin-top: 8px; width: 100%;
 }
 .barcode-caption {
   font-family: var(--font-mono);
-  font-size: 11px; font-weight: 600;
+  font-size: 13px; font-weight: 600;
   letter-spacing: 0.12em;
   color: var(--color-text-muted);
 }
 .barcode-validity {
   display: inline-flex; align-items: center; gap: 3px;
-  font-size: 10px; font-weight: 600;
-  padding: 2px 7px; border-radius: var(--radius-pill);
+  font-size: 11px; font-weight: 600;
+  padding: 2px 8px; border-radius: var(--radius-pill);
 }
 .barcode-validity--ok { color: var(--color-success); background: rgba(52, 211, 153, 0.1); }
 .barcode-validity--err { color: var(--color-error); background: rgba(248, 113, 113, 0.1); }
 .barcode-actions {
-  display: flex; gap: 6px; margin-top: 6px;
+  display: flex; gap: 8px; margin-top: 8px;
   justify-content: center;
-  width: 100%;
 }
 .barcode-download {
-  display: inline-flex; align-items: center; gap: 4px;
-  font-size: 11px; font-weight: 600;
-  padding: 6px 12px; border-radius: var(--radius-pill);
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 13px; font-weight: 600;
+  padding: 8px 16px; border-radius: var(--radius-pill);
   border: 1px solid rgba(251, 239, 0, 0.08);
   background: var(--color-surface-raised);
   color: var(--color-text-muted);
@@ -657,10 +657,10 @@ html[dir="rtl"] .pelican-tab { font-family: "Noto Sans Arabic", var(--font-displ
 .barcode-download:hover { color: var(--color-text); border-color: rgba(251, 239, 0, 0.15); }
 .generator__number {
   font-family: var(--font-mono);
-  font-size: 13px; font-weight: 600;
+  font-size: 14px; font-weight: 600;
   letter-spacing: 0.1em;
   color: var(--color-text-muted);
-  margin: 8px 0 0;
+  margin: 10px 0 0;
 }
 
 /* Switch link */

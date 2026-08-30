@@ -4,7 +4,7 @@ export type Lang = "en" | "ar";
 
 const strings = {
   en: {
-    title: "HungerTag",
+    title: "HungerStation Barcode",
     subtitle: "Scan. Generate. Done.",
     barcode: "Barcode",
     qrCode: "QR Code",
@@ -16,7 +16,7 @@ const strings = {
     scan: "Scan",
     generate: "Generate",
     install: "Install",
-    installTitle: "Install HungerTag",
+    installTitle: "Install HungerStation Barcode",
     addHomeScreen: "Add to Home Screen",
     iosGuide: "In Safari, tap <b>Share</b>, then <b>Add to Home Screen</b>, then <b>Add</b>.",
     browserGuide: "Open your browser menu and choose <b>Install app</b> or <b>Add to Home Screen</b>.",
@@ -45,7 +45,7 @@ const strings = {
     ar: "AR",
   },
   ar: {
-    title: "هنغر تاغ",
+    title: "باركود هنغرستيشن",
     subtitle: "امسح. أنشئ. تم.",
     barcode: "الباركود",
     qrCode: "كود QR",
@@ -57,7 +57,7 @@ const strings = {
     scan: "مسح",
     generate: "إنشاء",
     install: "تثبيت",
-    installTitle: "تثبيت هنغر تاغ",
+    installTitle: "تثبيت باركود هنغرستيشن",
     addHomeScreen: "إضافة إلى الشاشة الرئيسية",
     iosGuide: "في Safari، اضغط <b>مشاركة</b>، ثم <b>إضافة إلى الشاشة الرئيسية</b>، ثم <b>إضافة</b>.",
     browserGuide: "افتح قائمة المتصفح واختر <b>تثبيت التطبيق</b> أو <b>إضافة إلى الشاشة الرئيسية</b>.",
