@@ -13,7 +13,7 @@ type Props = {
 };
 
 export default function BarcodeGenerator({ initialValue = "" }: Props) {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const [input, setInput] = useState(initialValue);
   const [format, setFormat] = useState<BarcodeFormat>("CODE128");
   const [mode, setMode] = useState<"barcode" | "qr">("barcode");
@@ -47,7 +47,17 @@ export default function BarcodeGenerator({ initialValue = "" }: Props) {
   return (
     <div className="generator">
       <div className="generator__header">
-        <h1 className="generator__title">{t.title}</h1>
+        <h1 className="generator__title">
+          {lang === "ar" ? (
+            <>
+              باركود <span className="brand-accent">هنغرستيشن</span>
+            </>
+          ) : (
+            <>
+              Hunger<span className="brand-accent">Station</span> Barcode
+            </>
+          )}
+        </h1>
         <p className="generator__subtitle">{t.subtitle}</p>
       </div>
 

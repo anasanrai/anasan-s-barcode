@@ -13,6 +13,14 @@ import { resizeImageToDataUrl } from "@/lib/imageResize";
 
 const ADMIN_PIN = "1234";
 
+const STORE_BADGE_OPTIONS = [
+  "👑 Top 1",
+  "⭐ Rank 2",
+  "🥉 Rank 3",
+  "🔥 On Fire",
+  "🏅 Top Performer",
+] as const;
+
 const EMPTY_PERFORMER = (): StarPerformer => ({
   id: `star-${Date.now()}`,
   name: "",
@@ -480,12 +488,19 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
                   <span className="admin-stores-score">
                     {store.performanceScore != null ? store.performanceScore.toFixed(1) : calculatePerformanceScore(store).toFixed(1)}
                   </span>
-                  <input
-                    type="text"
+                  <select
                     value={store.badge || ""}
                     onChange={(e) => handleStoreChange(i, "badge", e.target.value)}
-                    placeholder="Badge"
-                  />
+                    className="admin-stores-badge-select"
+                    aria-label="Badge"
+                  >
+                    <option value="">None</option>
+                    {STORE_BADGE_OPTIONS.map((badge) => (
+                      <option key={badge} value={badge}>
+                        {badge}
+                      </option>
+                    ))}
+                  </select>
                   <button
                     type="button"
                     onClick={() => handleRemoveStore(i)}

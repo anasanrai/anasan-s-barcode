@@ -544,6 +544,7 @@ html[dir="rtl"] .pelican-tab { font-family: "Noto Sans Arabic", var(--font-displ
   margin: 0 0 6px;
   letter-spacing: -0.02em;
 }
+.brand-accent { color: #FFD60A; }
 .generator__subtitle {
   font-size: 16px; color: var(--color-text-muted);
   margin: 0;
@@ -1411,10 +1412,11 @@ html[dir="rtl"] .number-input__actions {
   margin-top: 4px;
 }
 .admin-stores-table { display: flex; flex-direction: column; gap: 6px; }
-.admin-stores-table__head { display: grid; grid-template-columns: 44px 1fr 84px 90px 100px 90px 100px 90px 36px; gap: 6px; }
+.admin-stores-table__head { display: grid; grid-template-columns: 44px 1fr 84px 90px 100px 90px 100px 60px 130px 36px; gap: 6px; }
 .admin-stores-table__head span { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-muted); }
-.admin-stores-table__row { display: grid; grid-template-columns: 44px 1fr 84px 90px 100px 90px 100px 90px 36px; gap: 6px; align-items: center; }
-.admin-stores-table__row input {
+.admin-stores-table__row { display: grid; grid-template-columns: 44px 1fr 84px 90px 100px 90px 100px 60px 130px 36px; gap: 6px; align-items: center; }
+.admin-stores-table__row input,
+.admin-stores-table__row select {
   padding: 8px 6px; border-radius: var(--radius-sm);
   border: 1px solid var(--color-border);
   background: var(--color-bg);
