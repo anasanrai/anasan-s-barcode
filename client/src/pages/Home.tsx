@@ -30,9 +30,11 @@ function initialView(): "app" | "admin" | "stars" {
 
 export default function Home() {
   const isMobile = useIsMobile();
-  const [screen, setScreen] = useState<"scan" | "generate">(() =>
-    isMobile ? "scan" : "generate",
-  );
+  const [screen, setScreen] = useState<"scan" | "generate">(() => {
+    const qp = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("screen") : null;
+    if (qp === "scan" || qp === "generate") return qp;
+    return isMobile ? "scan" : "generate";
+  });
   const [view, setView] = useState<"app" | "admin" | "stars">(initialView);
   const [detectedNumber, setDetectedNumber] = useState("");
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);

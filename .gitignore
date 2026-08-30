@@ -5,6 +5,8 @@
 # Build outputs
 dist/
 build/
+capacitor-android/app/build/
+capacitor-ios/DerivedData/
 *.dist
 
 # Environment variables
