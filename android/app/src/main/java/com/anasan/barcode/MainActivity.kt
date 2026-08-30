@@ -36,12 +36,12 @@ class MainActivity : AppCompatActivity() {
     private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
     private lateinit var cameraExecutor: ExecutorService
 
-    // Frame confirmation: same value in 2-3 frames
+    // Instant: 1 frame (validated 14-digit near Barcodes: is unambiguous)
     private var lastValue: String? = null
     private var confirmCount = 0
-    private val requiredFrames = 2
+    private val requiredFrames = 1
 
-    // Throttle OCR to every ~700ms
+    // Instant throttle — ML Kit on-device is ~30-80ms
     private var lastOcrTime = 0L
 
     private val requestPermissionLauncher = registerForActivityResult(
@@ -108,7 +108,7 @@ class MainActivity : AppCompatActivity() {
     private fun processImageProxy(imageProxy: ImageProxy) {
         if (isResultShown) { imageProxy.close(); return }
         val now = System.currentTimeMillis()
-        if (now - lastOcrTime < 700) { imageProxy.close(); return }
+        if (now - lastOcrTime < 250) { imageProxy.close(); return }
         lastOcrTime = now
 
         val mediaImage = imageProxy.image
@@ -137,11 +137,13 @@ class MainActivity : AppCompatActivity() {
 
     /**
      * Extract 14-digit near "Barcodes:" — preserve as string, keep leading zeros.
-     * Ignore SKU, Arabic, price, etc. Returns null if no exact 14-digit found (no guessing).
+     * Handles OCR noise: O->0, spaces/dashes inside number, then exact 14-digit.
      */
     private fun extractPelicanNumber(ocrText: String): String? {
         if (ocrText.isBlank()) return null
-        val labelIdx = ocrText.lowercase().indexOf("barcode")
+        var t = ocrText.replace(Regex("[Oo]"), "0").replace(Regex("[lI]"), "1")
+        t = t.replace(Regex("(\\d)[ \\-.]+(?=\\d)"), "$1")
+        val labelIdx = t.lowercase().indexOf("barcode")
         val digitRegex = Regex("""\d{6,64}""")
         fun findIn(slice: String): String? {
             val all = digitRegex.findAll(slice).map { it.value }.toList()
@@ -151,10 +153,10 @@ class MainActivity : AppCompatActivity() {
             return null
         }
         if (labelIdx != -1) {
-            val after = ocrText.substring(labelIdx)
+            val after = t.substring(labelIdx)
             findIn(after)?.let { return it }
         }
-        return findIn(ocrText)
+        return findIn(t)
     }
 
     private fun showBarcode(number: String) {

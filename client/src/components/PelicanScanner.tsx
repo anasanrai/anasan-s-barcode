@@ -5,14 +5,25 @@ import { extractPelicanNumber, FrameConfirmation } from "@/lib/pelican";
 type Props = { onDetected: (value: string) => void };
 
 // ---- OCR worker singleton (cross-platform) ----
-type TWorker = { recognize: (src: HTMLCanvasElement | string) => Promise<{ data: { text: string } }>; terminate: () => Promise<void> };
+type TWorker = {
+  recognize: (src: HTMLCanvasElement | string) => Promise<{ data: { text: string } }>;
+  terminate: () => Promise<void>;
+  setParameters?: (p: Record<string, string | number>) => Promise<void>;
+};
 let workerPromise: Promise<TWorker> | null = null;
 async function getWorker(): Promise<TWorker> {
   if (workerPromise) return workerPromise;
   workerPromise = (async () => {
     const { createWorker } = await import("tesseract.js");
-    // eng only; no extra OSD to keep wasm small and fast on iOS
     const w = (await createWorker("eng")) as unknown as TWorker;
+    // Instant-tune: whitelist digits + Barcodes chars, single block PSM (6)
+    try {
+      await w.setParameters?.({
+        tessedit_char_whitelist: "0123456789Barcodes: ",
+        tessedit_pageseg_mode: "6" as unknown as number,
+        classify_bln_numeric_mode: "1" as unknown as number,
+      });
+    } catch {}
     return w;
   })();
   return workerPromise;
@@ -28,11 +39,32 @@ async function ocrImageSrc(src: string): Promise<string> {
   return data.text ?? "";
 }
 
+// Native BarcodeDetector fast path (hardware-accelerated, instant on Android Chrome/iOS 17+)
+type BarcodeDetectorInstance = { detect: (src: CanvasImageSource) => Promise<{ rawValue: string }[]> };
+let detectorPromise: Promise<BarcodeDetectorInstance | null> | null = null;
+function getDetector(): Promise<BarcodeDetectorInstance | null> {
+  if (detectorPromise) return detectorPromise;
+  detectorPromise = (async () => {
+    const Ctor = (window as unknown as { BarcodeDetector?: new (opts: unknown) => BarcodeDetectorInstance }).BarcodeDetector;
+    if (!Ctor) return null;
+    try {
+      return new Ctor({ formats: ["code_128", "ean_13", "ean_8", "code_39", "upc_a"] });
+    } catch {
+      try {
+        return new Ctor({});
+      } catch {
+        return null;
+      }
+    }
+  })();
+  return detectorPromise;
+}
+
 export default function PelicanScanner({ onDetected }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const confirmRef = useRef(new FrameConfirmation(2));
+  const confirmRef = useRef(new FrameConfirmation(1)); // instant: 1 frame
   const busyRef = useRef(false);
   const timerRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -63,29 +95,26 @@ export default function PelicanScanner({ onDetected }: Props) {
     try {
       await track.applyConstraints({ advanced: [{ torch: !torchOn } as unknown as MediaTrackConstraintSet] });
       setTorchOn((v) => !v);
-    } catch { /* ignore */ }
+    } catch {}
   };
 
   const startCamera = useCallback(async () => {
     setCameraError(false);
     setNeedsGesture(false);
     setStarting(true);
-    // Clean previous
     stopCamera();
-    confirmRef.current = new FrameConfirmation(2);
+    confirmRef.current = new FrameConfirmation(1);
 
-    // Guard: insecure context or no mediaDevices
     if (!navigator.mediaDevices?.getUserMedia) {
       setCameraError(true);
       setStarting(false);
       return;
     }
     try {
-      // Try environment first, fallback to generic video on failure (iOS 16 quirk)
       let stream: MediaStream;
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
+          video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } },
           audio: false,
         });
       } catch {
@@ -98,7 +127,6 @@ export default function PelicanScanner({ onDetected }: Props) {
       video.setAttribute("webkit-playsinline", "true");
       video.muted = true;
       video.srcObject = stream;
-      // iOS Safari requires explicit play() after user gesture; try and detect failure
       try {
         await video.play();
       } catch {
@@ -106,21 +134,20 @@ export default function PelicanScanner({ onDetected }: Props) {
         setStarting(false);
         return;
       }
-      // Check if video actually started (readyState)
-      // Give it a moment; if still paused and no gesture, show tap button
       window.setTimeout(() => {
         if (video.paused) setNeedsGesture(true);
-      }, 600);
+      }, 500);
 
       const track = stream.getVideoTracks()[0];
       const caps = (track.getCapabilities?.() as unknown as { torch?: boolean }) ?? {};
       if (caps?.torch) setTorchSupported(true);
       setStarting(false);
 
-      // Pre-warm OCR worker in background (hide latency on first frame, iOS slow wasm)
+      // Pre-warm both engines in parallel — no UI block
       void getWorker().catch(() => {});
+      void getDetector().catch(() => {});
 
-      // OCR sampling loop
+      // INSTANT sampling: 380ms, native detector first, then OCR
       timerRef.current = window.setInterval(async () => {
         if (busyRef.current) return;
         const v = videoRef.current;
@@ -130,32 +157,44 @@ export default function PelicanScanner({ onDetected }: Props) {
         try {
           const vw = v.videoWidth;
           const vh = v.videoHeight;
-          // Center crop matching overlay: 68% width, 38% height
-          const sw = vw * 0.68;
-          const sh = vh * 0.38;
+          // Enlarged scan window to avoid clipping Barcodes: line seen in screenshot
+          // Matches CSS .pelican-rect (76vw x 44vw)
+          const sw = vw * 0.76;
+          const sh = vh * 0.44;
           const sx = (vw - sw) / 2;
           const sy = (vh - sh) / 2;
-          // Upscale 1.6x for OCR accuracy (helps small Pelican text)
-          const scale = 1.6;
-          canvas.width = sw * scale;
-          canvas.height = sh * scale;
-          const ctx = canvas.getContext("2d");
+          const scale = 1.7;
+          canvas.width = Math.round(sw * scale);
+          canvas.height = Math.round(sh * scale);
+          const ctx = canvas.getContext("2d", { willReadFrequently: true });
           if (!ctx) return;
-          // Improve contrast for ML Kit / Tesseract
           ctx.imageSmoothingEnabled = true;
           ctx.drawImage(v, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
-          // Light grayscale + contrast boost helps iOS auto-exposure white card
-          try {
-            const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const d = img.data;
-            for (let i = 0; i < d.length; i += 4) {
-              const g = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-              const v2 = g > 155 ? 255 : g < 90 ? 0 : g;
-              d[i] = d[i + 1] = d[i + 2] = v2;
-            }
-            ctx.putImageData(img, 0, 0);
-          } catch { /* cross-origin canvas on some iOS — ignore */ }
 
+          // 1) Native BarcodeDetector fast path (~10-30ms, hardware)
+          try {
+            const detector = await getDetector();
+            if (detector) {
+              const barcodes = await detector.detect(canvas);
+              for (const b of barcodes) {
+                const val = (b.rawValue ?? "").trim();
+                // Validate: digits only, keep as string
+                if (/^\d{8,64}$/.test(val)) {
+                  const cand = extractPelicanNumber(val) ?? (val.length === 14 ? val : null);
+                  if (cand) {
+                    const confirmed = confirmRef.current.push(cand);
+                    if (confirmed) {
+                      stopCamera();
+                      onDetectedRef.current(confirmed);
+                      return;
+                    }
+                  }
+                }
+              }
+            }
+          } catch {}
+
+          // 2) OCR instant path
           const text = await ocrCanvas(canvas);
           const candidate = extractPelicanNumber(text);
           const confirmed = confirmRef.current.push(candidate);
@@ -164,14 +203,12 @@ export default function PelicanScanner({ onDetected }: Props) {
             onDetectedRef.current(confirmed);
           }
         } catch {
-          // never surface OCR errors — keep scanning
         } finally {
           busyRef.current = false;
         }
-      }, 900);
+      }, 380);
     } catch (err) {
       const name = (err as DOMException)?.name ?? "";
-      // iOS blocks without gesture: NotAllowedError before any tap
       if (name === "NotAllowedError") setNeedsGesture(true);
       else setCameraError(true);
       setStarting(false);
@@ -179,14 +216,10 @@ export default function PelicanScanner({ onDetected }: Props) {
   }, [stopCamera]);
 
   useEffect(() => {
-    // Attempt auto-start; iOS will flip to needsGesture if blocked
     void startCamera();
-    return () => {
-      stopCamera();
-    };
+    return () => stopCamera();
   }, [startCamera, stopCamera]);
 
-  // Cleanup worker on unmount (do not terminate per-frame anymore)
   useEffect(() => {
     return () => {
       workerPromise?.then((w) => w.terminate().catch(() => {})).catch(() => {});
@@ -200,6 +233,28 @@ export default function PelicanScanner({ onDetected }: Props) {
     if (!file) return;
     const url = URL.createObjectURL(file);
     try {
+      // Try native detector on image first (instant if it's a photographed barcode)
+      try {
+        const detector = await getDetector();
+        if (detector) {
+          const img = new Image();
+          img.src = url;
+          await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = () => rej(new Error("img")); });
+          const barcodes = await detector.detect(img);
+          for (const b of barcodes) {
+            const val = (b.rawValue ?? "").trim();
+            if (/^\d{8,64}$/.test(val)) {
+              const cand = extractPelicanNumber(val) ?? (val.length === 14 ? val : null);
+              if (cand) {
+                URL.revokeObjectURL(url);
+                stopCamera();
+                onDetected(cand);
+                return;
+              }
+            }
+          }
+        }
+      } catch {}
       const text = await ocrImageSrc(url);
       URL.revokeObjectURL(url);
       const candidate = extractPelicanNumber(text);
@@ -213,11 +268,9 @@ export default function PelicanScanner({ onDetected }: Props) {
   };
 
   const handleGestureTap = () => {
-    // User explicitly tapped — now play() will succeed on iOS
     const v = videoRef.current;
     if (v) v.play().catch(() => setCameraError(true));
     setNeedsGesture(false);
-    // If camera was already bound but paused, resume; otherwise restart
     if (!streamRef.current) void startCamera();
   };
 
@@ -237,7 +290,6 @@ export default function PelicanScanner({ onDetected }: Props) {
         </button>
       )}
 
-      {/* iOS / blocked camera gate */}
       {needsGesture && (
         <button type="button" className="pelican-tap" onClick={handleGestureTap}>
           <Camera size={22} /> Tap to start camera
@@ -248,7 +300,6 @@ export default function PelicanScanner({ onDetected }: Props) {
         <div className="pelican-starting" aria-hidden="true">Starting camera…</div>
       )}
 
-      {/* Always-on low-profile fallback — works on Android Chrome, iOS Safari, desktop, PWA */}
       <div className="pelican-fallback">
         <button type="button" className="button button--secondary pelican-upload" onClick={() => fileInputRef.current?.click()}>
           <ImageUp size={16} /> Upload image

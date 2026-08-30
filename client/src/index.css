@@ -26,7 +26,7 @@ button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparen
 }
 .pelican-canvas { display:none; }
 .pelican-overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
-.pelican-rect { width: min(78vw, 340px); height: min(42vw, 190px); border: 2px solid rgba(255,255,255,0.96); border-radius: 10px; box-shadow: 0 0 0 9999px rgba(0,0,0,0.42); position: relative; }
+.pelican-rect { width: min(76vw, 360px); height: min(44vw, 210px); border: 2px solid rgba(255,255,255,0.96); border-radius: 12px; box-shadow: 0 0 0 9999px rgba(0,0,0,0.42); position: relative; }
 .pelican-rect::before { content:""; position:absolute; top:50%; left:8%; right:8%; height:2px; background: rgba(255,255,255,0.9); box-shadow: 0 0 8px rgba(255,255,255,0.65); animation: pelican-scan 1.8s ease-in-out infinite; }
 .pelican-hint {
   margin-top: 18px; color: rgba(255,255,255,0.96); font-size: 13px; letter-spacing: 0.02em;

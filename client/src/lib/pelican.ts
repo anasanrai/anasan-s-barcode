@@ -9,12 +9,20 @@ export const PELICAN_LENGTH = 14;
 
 const LONG_DIGITS = /\d{6,64}/g;
 
+/** Normalize common OCR confusions but preserve leading zeros. */
+export function normalizeOcrText(raw: string): string {
+  // Fix frequent confusions on Pelican white card: O->0, o->0, l/I->1, S->5 is risky, so only O/o
+  // Also remove spaces/dashes inside numbers: "0628 1016 0037 88" -> "06281016003788"
+  let t = raw.replace(/[Oo]/g, "0").replace(/[lI]/g, "1");
+  // Collapse spaces/dashes between digits
+  t = t.replace(/(\d)[ \-\.]+(?=\d)/g, "$1");
+  return t;
+}
+
 /** Extract the best candidate number from raw OCR text. */
 export function extractPelicanNumber(ocrText: string): string | null {
   if (!ocrText) return null;
-  // Normalize common OCR confusions minimally; keep raw digits only.
-  // We do NOT strip leading zeros — identity preserved.
-  const text = ocrText;
+  const text = normalizeOcrText(ocrText);
 
   // Prefer the number that appears after "Barcodes" label (case-insensitive).
   const barcodesIndex = text.toLowerCase().indexOf("barcode");
@@ -54,11 +62,11 @@ export function extractAnyNumericCandidate(ocrText: string): string | null {
   return m.find((c) => c.length === PELICAN_LENGTH) ?? null;
 }
 
-/** Frame-confirmation helper: requires same value in N consecutive observations. */
+/** Frame-confirmation helper: requires same value in N consecutive observations. Default 1 = instant. */
 export class FrameConfirmation {
   private last: string | null = null;
   private count = 0;
-  constructor(private requiredFrames = 3) {}
+  constructor(private requiredFrames = 1) {}
   push(value: string | null): string | null {
     if (!value) {
       this.last = null;
