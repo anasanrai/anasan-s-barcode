@@ -6,6 +6,8 @@ import {
   useLeaderboard,
 } from "@/lib/leaderboardStore";
 
+import { resizeImageToDataUrl } from "@/lib/imageResize";
+
 const ADMIN_PIN = "1234";
 
 const EMPTY_PERFORMER = (): StarPerformer => ({
@@ -73,19 +75,20 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
     });
   };
 
-  const handleGalleryImageUpload = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleGalleryImageUpload = async (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 512 * 1024) {
-      alert("Image must be smaller than 512 KB");
-      return;
+    try {
+      const dataUrl = await resizeImageToDataUrl(file, {
+        maxWidth: 1024,
+        maxHeight: 1024,
+        maxBytes: 480 * 1024,
+        quality: 0.85,
+      });
+      handleGalleryChange(index, "imageUrl", dataUrl);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Image processing failed");
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const b64 = reader.result as string;
-      handleGalleryChange(index, "imageUrl", b64);
-    };
-    reader.readAsDataURL(file);
   };
 
   const handleAddPerformer = () => {
