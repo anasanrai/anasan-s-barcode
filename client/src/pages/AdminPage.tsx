@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import {
   type StarPerformer,
   type StoreLeaderboardItem,
+  calculatePerformanceScore,
+  sortByPerformance,
   useLeaderboard,
 } from "@/lib/leaderboardStore";
 
@@ -128,7 +130,7 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
 
   const handleSaveStores = (e: React.FormEvent) => {
     e.preventDefault();
-    updateTopStores(storesForm);
+    updateTopStores(sortByPerformance(storesForm));
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 2500);
   };
@@ -364,6 +366,7 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
                 <span>Assignment</span>
                 <span>Picking Time</span>
                 <span>Compensation %</span>
+                <span>Score</span>
                 <span>Badge</span>
                 <span>Actions</span>
               </div>
@@ -415,6 +418,9 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
                     onChange={(e) => handleStoreChange(i, "compensationRate", parseFloat(e.target.value) || 0)}
                     placeholder="4.5"
                   />
+                  <span className="admin-stores-score">
+                    {store.performanceScore != null ? store.performanceScore.toFixed(1) : calculatePerformanceScore(store).toFixed(1)}
+                  </span>
                   <input
                     type="text"
                     value={store.badge || ""}

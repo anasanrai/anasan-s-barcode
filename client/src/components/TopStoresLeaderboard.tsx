@@ -1,5 +1,6 @@
 import { Building2, CheckCircle2, Flame, Trophy } from "lucide-react";
 import type { StoreLeaderboardItem } from "@/lib/leaderboardStore";
+import { calculatePerformanceScore } from "@/lib/leaderboardStore";
 import { useLang } from "@/lib/i18n";
 
 interface Props {
@@ -73,6 +74,9 @@ export default function TopStoresLeaderboard({ stores, className = "" }: Props) 
                     {store.compensationRate}%
                   </span>
                 )}
+                <span className="top-stores-card__score">
+                  {(store.performanceScore ?? calculatePerformanceScore(store)).toFixed(1)}
+                </span>
               </div>
             </div>
           );

@@ -22,6 +22,7 @@ export interface StoreLeaderboardItem {
   pickingTime: string;
   compensationRate: number;
   badge?: string;
+  performanceScore?: number;
 }
 
 export interface LeaderboardState {
@@ -59,6 +60,24 @@ export const DEFAULT_LEADERBOARD: LeaderboardState = {
     { id: "10", rank: 10, name: "HungerStation Market", branch: "Al Quds", fulfillmentRate: 96.2, ordersCount: 980, assignment: "Warehouse", pickingTime: "13 min", compensationRate: 4.0 },
   ],
 };
+
+export function calculatePerformanceScore(store: StoreLeaderboardItem): number {
+  const pickingMinutes = parseFloat(store.pickingTime) || 10;
+  const pickingScore = Math.max(0, 100 - (pickingMinutes - 5) * 5);
+  return (
+    store.fulfillmentRate * 0.35 +
+    Math.min(store.ordersCount / 15, 100) * 0.25 +
+    pickingScore * 0.2 +
+    (store.compensationRate / 5) * 100 * 0.2
+  );
+}
+
+export function sortByPerformance(stores: StoreLeaderboardItem[]): StoreLeaderboardItem[] {
+  return stores
+    .map((s) => ({ ...s, performanceScore: calculatePerformanceScore(s) }))
+    .sort((a, b) => (b.performanceScore ?? 0) - (a.performanceScore ?? 0))
+    .map((s, i) => ({ ...s, rank: i + 1 }));
+}
 
 export function loadLeaderboardData(): LeaderboardState {
   if (typeof window === "undefined") return DEFAULT_LEADERBOARD;
