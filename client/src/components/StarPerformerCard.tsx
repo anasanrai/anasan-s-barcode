@@ -53,23 +53,24 @@ export default function StarPerformerCard({ performers, onOpenGallery, className
       {/* Avatar / Photo */}
       <button
         type="button"
-        className="star-performer-card__avatar-wrap"
+        className="star-performer-card__avatar-btn"
         onClick={onOpenGallery}
         aria-label={t.viewAllStars}
         title={t.viewAllStars}
       >
-        <div className="star-performer-card__wreath" />
-        {performer.imageUrl ? (
-          <img
-            src={performer.imageUrl}
-            alt={performer.name}
-            className="star-performer-card__img"
-          />
-        ) : (
-          <div className="star-performer-card__avatar-placeholder">
-            <User size={48} className="trophy-gold" />
-          </div>
-        )}
+        <div className="star-performer-card__avatar-ring">
+          {performer.imageUrl ? (
+            <img
+              src={performer.imageUrl}
+              alt={performer.name}
+              className="star-performer-card__img"
+            />
+          ) : (
+            <div className="star-performer-card__avatar-placeholder">
+              <User size={48} className="trophy-gold" />
+            </div>
+          )}
+        </div>
         <div className="star-performer-card__crown">
           <Crown size={22} fill="#FFB800" color="#FFB800" />
         </div>

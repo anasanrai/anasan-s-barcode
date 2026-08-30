@@ -1085,20 +1085,45 @@ html[dir="rtl"] .number-input__actions {
   margin: 0;
 }
 .star-icon { filter: drop-shadow(0 0 6px rgba(255,184,0,0.6)); }
-.star-performer-card__avatar-wrap {
-  position: relative; width: 140px; height: 140px;
+.star-performer-card__avatar-btn {
+  position: relative;
+  display: grid; place-items: center;
+  width: 152px; height: 156px;
+  padding: 0; border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.star-performer-card__avatar-btn:hover .star-performer-card__avatar-ring { transform: scale(1.02); }
+.star-performer-card__avatar-btn:active .star-performer-card__avatar-ring { transform: scale(0.98); }
+.star-performer-card__avatar-ring {
+  position: relative;
+  width: 140px; height: 140px;
   border-radius: 50%;
+  overflow: hidden;
   background: radial-gradient(circle, rgba(255,184,0,0.25) 0%, transparent 70%);
   display: grid; place-items: center;
   border: 3px solid rgba(255, 184, 0, 0.6);
   box-shadow: 0 0 30px rgba(255,184,0,0.35);
-  cursor: pointer;
-  padding: 0;
+  transition: transform 0.15s var(--ease-spring);
 }
-.star-performer-card__avatar-wrap:hover { transform: scale(1.02); }
-.star-performer-card__avatar-wrap:active { transform: scale(0.98); }
+.star-performer-card__img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.star-performer-card__avatar-placeholder {
+  width: 100%; height: 100%;
+  display: grid; place-items: center;
+  background: radial-gradient(circle, rgba(255,184,0,0.15), transparent);
+}
+.star-performer-card__crown {
+  position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+  background: #0D0E12; border-radius: var(--radius-pill);
+  padding: 2px 8px; line-height: 1;
+  border: 1px solid rgba(255,184,0,0.4);
+}
 .star-performer-card__counter {
-  position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%);
+  position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%);
   background: #0D0E12; color: #FFB800;
   border: 1px solid rgba(255,184,0,0.4);
   border-radius: var(--radius-pill);
@@ -1106,21 +1131,7 @@ html[dir="rtl"] .number-input__actions {
   font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
   line-height: 1;
 }
-.star-performer-card__img {
-  width: 100%; height: 100%; object-fit: cover; border-radius: 50%;
-}
-.star-performer-card__avatar-placeholder {
-  width: 100%; height: 100%; border-radius: 50%;
-  display: grid; place-items: center;
-  background: radial-gradient(circle, rgba(255,184,0,0.15), transparent);
-}
 .trophy-gold { color: #FFB800; filter: drop-shadow(0 0 8px rgba(255,184,0,0.5)); }
-.star-performer-card__crown {
-  position: absolute; top: -8px; left: 50%; transform: translateX(-50%);
-  background: #0D0E12; border-radius: var(--radius-pill);
-  padding: 2px 8px; line-height: 1;
-  border: 1px solid rgba(255,184,0,0.4);
-}
 .star-performer-card__name-badge {
   background: linear-gradient(180deg, #2a1a00, #1a0b00);
   border: 1px solid rgba(255,184,0,0.35);
