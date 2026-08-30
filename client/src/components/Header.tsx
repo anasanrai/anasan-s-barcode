@@ -57,14 +57,7 @@ export default function Header() {
   return (
     <header className="hs-header">
       <a href="/" className="hs-logo" aria-label="HungerStation">
-        <svg className="hs-logo__img" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-          <rect width="512" height="512" rx="100" fill="#FBEF00"/>
-          <g transform="translate(80, 60)">
-            <path d="M166.4 0C130.2 0 99.2 14.6 75.2 42L0 220h88l37.2-112c8.8-26.4 26.4-40.4 52.4-40.4h22c26 0 43.6 14 52.4 40.4L244 220h88L255.2 42C231.2 14.6 200.2 0 164 0h2.4z" fill="#1A0F0A"/>
-            <path d="M0 260h88l37.2-68L164 260h88l-76.8-140L328 260h88L300 120l116 140h72" fill="none" stroke="#1A0F0A" strokeWidth="24" strokeLinecap="round"/>
-          </g>
-        </svg>
-        <span className="hs-logo__text">HungerTag</span>
+        <img src="/hungerstation-logo-shadow.1vx_waus0h43y.svg" alt="HungerStation" className="hs-logo__img" />
       </a>
 
       <div className="hs-header__actions">

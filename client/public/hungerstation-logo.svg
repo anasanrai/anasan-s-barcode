@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 180">
+  <rect x="4" y="4" width="352" height="172" rx="28" fill="#FBEF00" stroke="#6B3A1F" stroke-width="8"/>
+  <text x="180" y="82" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',sans-serif" font-weight="900" font-size="62" fill="#6B3A1F" letter-spacing="2">HUNGER</text>
+  <text x="180" y="150" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',sans-serif" font-weight="900" font-size="62" fill="#6B3A1F" letter-spacing="2">STATION</text>
+</svg>
