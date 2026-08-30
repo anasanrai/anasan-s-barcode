@@ -2,6 +2,7 @@ import { Globe, Download, Share2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getInstallMode, isIosUserAgent, isStandaloneDisplay, type InstallMode } from "@/lib/install";
 import { useLang } from "@/lib/i18n";
+import { useTheme } from "@/lib/theme";
 
 type DeferredPrompt = Event & {
   prompt: () => Promise<void>;
@@ -10,6 +11,7 @@ type DeferredPrompt = Event & {
 
 export default function Header() {
   const { lang, t, toggle } = useLang();
+  const { toggle: toggleTheme } = useTheme();
   const [deferred, setDeferred] = useState<DeferredPrompt | null>(null);
   const [standalone, setStandalone] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
@@ -56,9 +58,9 @@ export default function Header() {
 
   return (
     <header className="hs-header">
-      <a href="/" className="hs-logo" aria-label="HungerStation">
+      <button type="button" className="hs-logo" aria-label="Toggle theme" onClick={toggleTheme}>
         <img src="/hungerstation-logo-shadow.1vx_waus0h43y.svg" alt="HungerStation" className="hs-logo__img" />
-      </a>
+      </button>
 
       <div className="hs-header__actions">
         <button type="button" className="hs-lang-btn" onClick={toggle} aria-label={`Switch to ${lang === "en" ? "Arabic" : "English"}`}>
