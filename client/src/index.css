@@ -1433,6 +1433,66 @@ html[dir="rtl"] .number-input__actions {
   width: 30px; height: 30px; display: grid; place-items: center;
   border-radius: var(--radius-sm); color: var(--color-error); flex-shrink: 0;
 }
+.admin-role-select { display: flex; gap: 12px; margin: 20px 0; }
+.admin-role-btn {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: 24px 16px; border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-raised); color: var(--color-text);
+  font-size: 14px; font-weight: 700;
+  transition: border-color 0.15s, transform 0.1s;
+}
+.admin-role-btn:hover { border-color: var(--color-accent); }
+.admin-role-btn:active { transform: scale(0.98); }
+.admin-store-banner {
+  font-size: 13px; font-weight: 700; color: var(--color-accent);
+  background: var(--color-accent-dim);
+  padding: 8px 14px; border-radius: var(--radius-md);
+  margin: 0 0 12px;
+}
+.manager-photo-preview {
+  width: 96px; height: 120px; border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  display: grid; place-items: center; overflow: hidden;
+  color: var(--color-text-muted);
+}
+.manager-photo-preview img { width: 100%; height: 100%; object-fit: cover; }
+.admin-add-row {
+  display: grid; grid-template-columns: 1.4fr 1fr 120px auto; gap: 8px;
+  align-items: end; margin-bottom: 16px;
+}
+.admin-add-row input {
+  padding: 10px 12px; border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg); color: var(--color-text);
+  font-size: 13px; outline: none; min-width: 0;
+}
+.owner-managers-list { display: flex; flex-direction: column; gap: 6px; }
+.admin-store-row {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+}
+.admin-store-row--off { opacity: 0.5; }
+.admin-store-row__name { font-size: 13px; font-weight: 700; color: var(--color-text); }
+.admin-store-row__branch { font-size: 12px; color: var(--color-text-muted); flex: 1; }
+.admin-store-status {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+  padding: 2px 8px; border-radius: var(--radius-pill);
+  color: var(--color-text-muted); background: rgba(255, 255, 255, 0.06);
+}
+.admin-store-status--on { color: var(--color-success); background: rgba(52, 211, 153, 0.12); }
+.admin-icon-btn {
+  width: 30px; height: 30px; display: grid; place-items: center;
+  border-radius: var(--radius-sm); color: var(--color-text-muted); flex-shrink: 0;
+}
+.admin-icon-btn:hover { color: var(--color-text); }
+.admin-row--top { border-color: rgba(255, 184, 0, 0.35); }
+.admin-row-branch { font-size: 12px; font-weight: 600; color: var(--color-text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-row-score { font-weight: 800; color: var(--color-accent); }
+.admin-row-week { font-size: 11px; color: var(--color-text-muted); white-space: nowrap; }
 
 /* ——— Admin Star Gallery Editor ——— */
 .admin-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }

@@ -26,7 +26,7 @@ export default function StarPerformerCard({ performers, onOpenGallery, className
   }, [performers.length]);
 
   const performer = performers[index] ?? performers[0];
-  if (!performer) return null;
+  if (!performer || !performer.name) return null;
 
   return (
     <aside className={`star-performer-card ${className}`} aria-label={t.starOfTheWeek}>

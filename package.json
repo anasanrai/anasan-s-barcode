@@ -16,8 +16,10 @@
     "build:android": "pnpm build && cap sync android && cd capacitor-android && ./gradlew assembleDebug"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
     "@zxing/browser": "^0.2.1",
     "@zxing/library": "^0.23.0",
+    "drizzle-orm": "^0.45.2",
     "express": "^4.21.2",
     "jsbarcode": "^3.12.3",
     "lucide-react": "^0.453.0",
@@ -44,6 +46,7 @@
     "@types/react-dom": "^19.2.1",
     "@vercel/node": "^10.0.0",
     "@vitejs/plugin-react": "^5.0.4",
+    "drizzle-kit": "^0.31.10",
     "esbuild": "^0.25.0",
     "pnpm": "^10.15.1",
     "tailwindcss": "^4.1.14",

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  badgeForRank,
   calculatePerformerScore,
+  mapApiPerformer,
+  mapApiResponse,
+  mapApiStore,
   sortPerformers,
   type StarPerformer,
 } from "./leaderboardStore";
@@ -84,5 +88,50 @@ describe("sortPerformers", () => {
     const timed = performer({ id: "t", totalOrders: 100, pickingTime: 10, assignmentTime: 5 });
     expect(sortPerformers([zeroed, timed], "picking").map((p) => p.id)).toEqual(["t", "z"]);
     expect(sortPerformers([zeroed, timed], "assignment").map((p) => p.id)).toEqual(["t", "z"]);
+  });
+});
+
+describe("api mapping", () => {
+  it("derives badges from rank", () => {
+    expect(badgeForRank(1)).toBe("👑 Top 1");
+    expect(badgeForRank(2)).toBe("⭐ Rank 2");
+    expect(badgeForRank(3)).toBe("🥉 Rank 3");
+    expect(badgeForRank(4)).toBeUndefined();
+  });
+
+  it("maps api store to leaderboard item", () => {
+    const item = mapApiStore({
+      id: "s1", name: "Store", branch: "B", rank: 1, score: 94.7, top10: true,
+      totalOrders: 1420, pickingMin: 8, assignmentMin: 2, fulfillmentRate: 99.4, compensationRate: 4.8,
+    });
+    expect(item.rank).toBe(1);
+    expect(item.ordersCount).toBe(1420);
+    expect(item.pickingTime).toBe("8 min");
+    expect(item.badge).toBe("👑 Top 1");
+    expect(item.top10).toBe(true);
+  });
+
+  it("maps performer with parent store metrics", () => {
+    const p = mapApiPerformer(
+      { storeId: "s1", storeName: "Store", storeBranch: "B", storeRank: 1, name: "Ahmad", role: "Shopper", quote: "Go", badgeTitle: "HS", photo: null },
+      { id: "s1", name: "Store", branch: "B", rank: 1, score: 90, top10: true, totalOrders: 1000, pickingMin: 9, assignmentMin: 3, fulfillmentRate: 98, compensationRate: 4 },
+    );
+    expect(p.id).toBe("s1");
+    expect(p.totalOrders).toBe(1000);
+    expect(p.pickingTime).toBe(9);
+    expect(p.imageUrl).toBeUndefined();
+  });
+
+  it("round-trips full api response", () => {
+    const api = {
+      week: "2026-W36",
+      stores: [{ id: "s1", name: "Store", branch: "B", rank: 1, score: 90, top10: true, totalOrders: 1000, pickingMin: 9, assignmentMin: 3, fulfillmentRate: 98, compensationRate: 4 }],
+      performers: [{ storeId: "s1", storeName: "Store", storeBranch: "B", storeRank: 1, name: "Ahmad", role: "Shopper", quote: "", badgeTitle: "HS", photo: "data:image/jpeg;base64,x" }],
+    };
+    const mapped = mapApiResponse(api);
+    expect(mapped.week).toBe("2026-W36");
+    expect(mapped.stores.length).toBe(1);
+    expect(mapped.performers[0].imageUrl).toBe("data:image/jpeg;base64,x");
+    expect(mapped.performers[0].totalOrders).toBe(1000);
   });
 });

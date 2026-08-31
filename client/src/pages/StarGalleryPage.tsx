@@ -17,7 +17,10 @@ export default function StarGalleryPage({ onBack }: Props) {
   const { starGallery, starPerformer } = useLeaderboard();
   const [sortKey, setSortKey] = useState<PerformerSortKey>("score");
 
-  const baseList = starGallery.length > 0 ? starGallery : [starPerformer];
+  const baseList = useMemo(() => {
+    const list = starGallery.length > 0 ? starGallery : [starPerformer];
+    return list.filter((p) => p.name);
+  }, [starGallery, starPerformer]);
   const performers = useMemo(() => sortPerformers(baseList, sortKey), [baseList, sortKey]);
 
   return (
