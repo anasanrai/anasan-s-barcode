@@ -144,6 +144,7 @@ async function ocrCanvas(canvas: HTMLCanvasElement): Promise<string> {
 }
 
 async function serverOcr(canvas: HTMLCanvasElement, timeoutMs = 1800): Promise<string | null> {
+  if (typeof navigator !== "undefined" && !navigator.onLine) return null;
   try {
     const pre = preprocessForOcr(canvas);
     const dataUrl = pre.toDataURL("image/jpeg", 0.85);

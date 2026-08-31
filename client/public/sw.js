@@ -36,9 +36,13 @@ self.addEventListener("install", (event) => {
   );
 });
 
-function warmHeavyAssets() {
-  return caches.open(CACHE).then((cache) =>
-    Promise.allSettled(HEAVY_ASSETS.map((url) => cache.add(url)))
+async function warmHeavyAssets() {
+  const cache = await caches.open(CACHE);
+  await Promise.allSettled(
+    HEAVY_ASSETS.map(async (url) => {
+      if (await cache.match(url)) return;
+      await cache.add(url);
+    })
   );
 }
 
@@ -51,6 +55,13 @@ self.addEventListener("activate", (event) => {
       await warmHeavyAssets();
     })()
   );
+});
+
+// The app asks for a warm pass on every online visit — heals interrupted installs
+self.addEventListener("message", (event) => {
+  if (event.data === "warm-heavy") {
+    event.waitUntil(warmHeavyAssets());
+  }
 });
 
 function isStaticAsset(url) {
