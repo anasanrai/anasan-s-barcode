@@ -1,4 +1,4 @@
-const CACHE = "pelican-barcode-v6";
+const CACHE = "pelican-barcode-v7";
 
 // Injected by build script with the current hashed asset list
 const PRECACHE_ASSETS = self.__PRECACHE_ASSETS || [];
@@ -12,7 +12,13 @@ const APP_SHELL = [
   "/icon-192.png",
   "/icon-512.png",
   "/og.svg",
+  "/about/anasan.jpg",
   "/tessdata/eng.traineddata.gz",
+  "/tesseract/worker.min.js",
+  "/tesseract/tesseract-core-simd-lstm.wasm.js",
+  "/tesseract/tesseract-core-simd-lstm.wasm",
+  "/tesseract/tesseract-core-lstm.wasm.js",
+  "/tesseract/tesseract-core-lstm.wasm",
 ];
 
 const PRECACHE_URLS = [...APP_SHELL, ...PRECACHE_ASSETS];

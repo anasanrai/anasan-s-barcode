@@ -5,6 +5,7 @@ import Header from "@/components/Header";
 import LeaderboardModal from "@/components/LeaderboardModal";
 import AdminPage from "./AdminPage";
 import StarGalleryPage from "./StarGalleryPage";
+import AboutPage from "./AboutPage";
 import { useNumberHistory } from "@/lib/useNumberHistory";
 
 function useIsMobile() {
@@ -21,10 +22,11 @@ function useIsMobile() {
   return mobile;
 }
 
-function initialView(): "app" | "admin" | "stars" {
+function initialView(): "app" | "admin" | "stars" | "about" {
   if (typeof window === "undefined") return "app";
   if (window.location.pathname.startsWith("/admin")) return "admin";
   if (window.location.pathname.startsWith("/stars")) return "stars";
+  if (window.location.pathname.startsWith("/about")) return "about";
   return "app";
 }
 
@@ -35,7 +37,7 @@ export default function Home() {
     if (qp === "scan" || qp === "generate") return qp;
     return isMobile ? "scan" : "generate";
   });
-  const [view, setView] = useState<"app" | "admin" | "stars">(initialView);
+  const [view, setView] = useState<"app" | "admin" | "stars" | "about">(initialView);
   const [detectedNumber, setDetectedNumber] = useState("");
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
 
@@ -52,6 +54,8 @@ export default function Home() {
         setView("admin");
       } else if (window.location.pathname.startsWith("/stars")) {
         setView("stars");
+      } else if (window.location.pathname.startsWith("/about")) {
+        setView("about");
       } else {
         setView("app");
       }
@@ -91,12 +95,26 @@ export default function Home() {
     setView("app");
   };
 
+  const handleOpenAbout = () => {
+    window.history.pushState({}, "", "/about");
+    setView("about");
+  };
+
+  const handleCloseAbout = () => {
+    window.history.pushState({}, "", "/");
+    setView("app");
+  };
+
   if (view === "admin") {
     return <AdminPage onBack={handleCloseAdmin} />;
   }
 
   if (view === "stars") {
     return <StarGalleryPage onBack={handleCloseStars} />;
+  }
+
+  if (view === "about") {
+    return <AboutPage onBack={handleCloseAbout} />;
   }
 
   // Mobile layout (< 1100px)
@@ -108,6 +126,7 @@ export default function Home() {
             <Header
               onOpenLeaderboard={() => setIsLeaderboardOpen(true)}
               onGoToAdmin={handleOpenAdmin}
+              onOpenAbout={handleOpenAbout}
             />
             <PelicanScanner onDetected={handleDetected} />
             <div className="pelican-tabs">
@@ -126,6 +145,7 @@ export default function Home() {
             <Header
               onOpenLeaderboard={() => setIsLeaderboardOpen(true)}
               onGoToAdmin={handleOpenAdmin}
+              onOpenAbout={handleOpenAbout}
             />
             <BarcodeGenerator initialValue={detectedNumber} />
             <div className="pelican-tabs">
@@ -154,6 +174,7 @@ export default function Home() {
       <Header
         onOpenLeaderboard={() => setIsLeaderboardOpen(true)}
         onGoToAdmin={handleOpenAdmin}
+              onOpenAbout={handleOpenAbout}
       />
 
       <main className="desktop-stage">

@@ -1245,6 +1245,22 @@ html[dir="rtl"] .number-input__actions {
   background: var(--color-accent-dim);
   padding: 1px 6px; border-radius: var(--radius-pill);
 }
+.hs-github-btn,
+.hs-about-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 12px; border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface); color: var(--color-text);
+  font-size: 12px; font-weight: 600; text-decoration: none;
+  transition: border-color 0.15s;
+}
+.hs-github-btn:hover,
+.hs-about-btn:hover { border-color: var(--color-accent); }
+.hs-about-btn { padding: 7px 10px; }
+@media (max-width: 640px) {
+  .hs-github-btn__label { display: none; }
+  .hs-github-btn { padding: 7px 10px; }
+}
 .admin-stores-score {
   font-size: 12px; font-weight: 700; color: var(--color-accent);
   background: var(--color-accent-dim);
@@ -1673,3 +1689,99 @@ html[dir="rtl"] .number-input__actions {
 }
 [data-theme="light"] .pelican-result__barcode .barcode-caption { color: #64748b; }
 [data-theme="light"] .pelican-result__number { color: var(--color-text-muted); }
+
+/* About page */
+.about-page {
+  min-height: 100vh;
+  background: var(--color-bg);
+  color: var(--color-text);
+  display: flex; flex-direction: column; align-items: center;
+  padding: 24px 20px 60px;
+}
+.about-page__back { align-self: flex-start; }
+.about-hero {
+  display: flex; flex-direction: column; align-items: center;
+  text-align: center; margin-top: 28px;
+}
+.about-hero__avatar-ring {
+  width: 132px; height: 132px; border-radius: 50%;
+  padding: 3px;
+  background: linear-gradient(135deg, #FFD60A, #FF7A18);
+  box-shadow: 0 12px 40px rgba(255, 122, 24, 0.25);
+}
+.about-hero__avatar {
+  width: 100%; height: 100%; border-radius: 50%;
+  object-fit: cover; display: block;
+  border: 3px solid var(--color-bg);
+}
+.about-hero__name {
+  font-family: var(--font-display);
+  font-size: 30px; font-weight: 800; letter-spacing: -0.02em;
+  margin: 20px 0 4px;
+}
+.about-hero__title { font-size: 15px; color: var(--color-text-muted); margin: 0; }
+.about-hero__title a {
+  color: var(--color-accent); font-weight: 700; text-decoration: none;
+}
+.about-hero__title a:hover { text-decoration: underline; }
+.about-hero__quote {
+  font-size: 17px; font-style: italic; color: var(--color-text);
+  margin: 18px 0 10px;
+}
+.about-hero__bio {
+  font-size: 14px; line-height: 1.65; color: var(--color-text-muted);
+  max-width: 520px; margin: 0;
+}
+.about-projects { width: 100%; max-width: 720px; margin-top: 44px; }
+.about-projects__title {
+  font-size: 12px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--color-text-muted);
+  margin: 0 0 14px; text-align: center;
+}
+.about-projects__grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
+}
+.about-project-card {
+  display: flex; flex-direction: column; gap: 6px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  text-decoration: none;
+  transition: border-color 0.15s, transform 0.12s;
+}
+.about-project-card:hover {
+  border-color: var(--color-accent);
+  transform: translateY(-2px);
+}
+.about-project-card__tag {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-accent); background: var(--color-accent-dim);
+  padding: 2px 8px; border-radius: var(--radius-pill);
+  width: fit-content;
+}
+.about-project-card__name {
+  font-size: 15px; font-weight: 700; color: var(--color-text); margin: 2px 0 0;
+}
+.about-project-card__desc {
+  font-size: 12.5px; line-height: 1.55; color: var(--color-text-muted); margin: 0;
+}
+.about-footer {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 10px;
+  margin-top: 44px;
+}
+.about-footer__link {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 12.5px; font-weight: 600;
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  padding: 8px 14px; border-radius: var(--radius-pill);
+  text-decoration: none;
+  transition: border-color 0.15s, color 0.15s;
+}
+.about-footer__link:hover {
+  border-color: var(--color-accent); color: var(--color-text);
+}
