@@ -1,18 +1,14 @@
 import { ArrowLeft, ImagePlus, LogOut, Save, Upload } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { apiFetch, clearSession, loadSession, saveSession, type AuthSession } from "@/lib/api";
+import { apiFetch, type AuthSession } from "@/lib/api";
 import { resizeImageToDataUrl } from "@/lib/imageResize";
 import { useLang } from "@/lib/i18n";
 
 interface Props {
+  session: AuthSession;
+  onLogout: () => void;
   onBack: () => void;
-}
-
-interface PublicStore {
-  id: string;
-  name: string;
-  branch: string;
 }
 
 interface MyStoreResponse {
@@ -33,13 +29,8 @@ interface MyStoreResponse {
   } | null;
 }
 
-export default function ManagerPortal({ onBack }: { onBack: () => void }) {
+export default function ManagerPortal({ session, onLogout, onBack }: Props) {
   const { t } = useLang();
-  const [session, setSession] = useState<AuthSession | null>(null);
-  const [stores, setStores] = useState<PublicStore[]>([]);
-  const [storeId, setStoreId] = useState("");
-  const [pin, setPin] = useState("");
-  const [loginError, setLoginError] = useState("");
   const [busy, setBusy] = useState(false);
   const [activeTab, setActiveTab] = useState<"score" | "performer">("score");
 
@@ -56,18 +47,7 @@ export default function ManagerPortal({ onBack }: { onBack: () => void }) {
   const [performerPhoto, setPerformerPhoto] = useState<string | null>(null);
 
   useEffect(() => {
-    const existing = loadSession();
-    if (existing?.role === "manager") {
-      setSession(existing);
-      setStoreId(existing.storeId ?? "");
-    }
-    apiFetch<{ stores: PublicStore[] }>("/stores")
-      .then((r) => setStores(r.stores))
-      .catch(() => setStores([]));
-  }, []);
-
-  useEffect(() => {
-    if (!session?.token) return;
+    if (!session.token) return;
     apiFetch<MyStoreResponse>("/my-store", { token: session.token })
       .then((r) => {
         if (r.submission) {
@@ -87,42 +67,10 @@ export default function ManagerPortal({ onBack }: { onBack: () => void }) {
         }
       })
       .catch(() => toast.error(t.loadFailed));
-  }, [session, t]);
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setBusy(true);
-    setLoginError("");
-    try {
-      const r = await apiFetch<{ token: string; store: PublicStore }>("/auth/login", {
-        method: "POST",
-        body: { role: "manager", storeId, pin },
-      });
-      const next = {
-        role: "manager" as const,
-        token: r.token,
-        storeId: r.store.id,
-        storeName: r.store.name,
-        storeBranch: r.store.branch,
-      };
-      saveSession(next);
-      setSession(next);
-      setPin("");
-    } catch (err) {
-      setLoginError(err instanceof Error ? err.message : "Login failed");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleLogout = () => {
-    clearSession();
-    setSession(null);
-  };
+  }, [session.token, t]);
 
   const handleSaveScore = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!session?.token) return;
     setBusy(true);
     try {
       await apiFetch("/my-store/metrics", {
@@ -156,7 +104,6 @@ export default function ManagerPortal({ onBack }: { onBack: () => void }) {
 
   const handleSavePerformer = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!session?.token) return;
     if (!performerName.trim()) {
       toast.error(t.performerNameRequired);
       return;
@@ -180,55 +127,6 @@ export default function ManagerPortal({ onBack }: { onBack: () => void }) {
       setBusy(false);
     }
   };
-
-  if (!session) {
-    return (
-      <main className="admin-page admin-page--login">
-        <div className="admin-login-card">
-          <h1 className="admin-login-card__title">{t.managerLoginTitle}</h1>
-          <p className="admin-login-card__sub">{t.managerLoginSub}</p>
-
-          <form onSubmit={handleLogin} className="admin-login-form">
-            <select
-              value={storeId}
-              onChange={(e) => setStoreId(e.target.value)}
-              className="admin-login-input"
-              required
-              aria-label={t.storeLabel}
-            >
-              <option value="">{t.selectStore}</option>
-              {stores.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name} — {s.branch}
-                </option>
-              ))}
-            </select>
-            <input
-              type="password"
-              inputMode="numeric"
-              maxLength={8}
-              placeholder={t.pinPlaceholder}
-              value={pin}
-              onChange={(e) => {
-                setPin(e.target.value);
-                setLoginError("");
-              }}
-              className="admin-login-input"
-              required
-            />
-            {loginError && <p className="admin-login-error">{loginError}</p>}
-            <button type="submit" className="admin-login-btn" disabled={busy}>
-              {t.unlock}
-            </button>
-          </form>
-
-          <button type="button" onClick={onBack} className="admin-back-btn">
-            <ArrowLeft size={16} /> {t.backToApp}
-          </button>
-        </div>
-      </main>
-    );
-  }
 
   return (
     <main className="admin-page">
@@ -254,7 +152,7 @@ export default function ManagerPortal({ onBack }: { onBack: () => void }) {
           </button>
         </div>
 
-        <button type="button" onClick={handleLogout} className="admin-reset-btn">
+        <button type="button" onClick={onLogout} className="admin-reset-btn">
           <LogOut size={14} /> {t.logout}
         </button>
       </header>

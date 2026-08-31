@@ -1,7 +1,7 @@
 import { ArrowLeft, KeyRound, LogOut, Power, Save } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { apiFetch, clearSession, loadSession, saveSession, type AuthSession } from "@/lib/api";
+import { apiFetch, type AuthSession } from "@/lib/api";
 import { useLang } from "@/lib/i18n";
 
 interface OwnerStore {
@@ -40,11 +40,16 @@ interface SubmissionsResponse {
   }>;
 }
 
-export default function OwnerPanel({ onBack }: { onBack: () => void }) {
+export default function OwnerPanel({
+  session,
+  onLogout,
+  onBack,
+}: {
+  session: AuthSession;
+  onLogout: () => void;
+  onBack: () => void;
+}) {
   const { t } = useLang();
-  const [session, setSession] = useState<AuthSession | null>(null);
-  const [pin, setPin] = useState("");
-  const [loginError, setLoginError] = useState("");
   const [busy, setBusy] = useState(false);
   const [activeTab, setActiveTab] = useState<"managers" | "ranking" | "submissions">("managers");
 
@@ -57,20 +62,15 @@ export default function OwnerPanel({ onBack }: { onBack: () => void }) {
   const [newPin, setNewPin] = useState("");
 
   useEffect(() => {
-    const existing = loadSession();
-    if (existing?.role === "owner") setSession(existing);
-  }, []);
-
-  useEffect(() => {
-    if (!session?.token) return;
+    if (!session.token) return;
     void loadOwnerStores();
     void loadRanking();
     void loadSubmissions();
-  }, [session]);
+  }, [session.token]);
 
   const loadOwnerStores = async () => {
     try {
-      const r = await apiFetch<{ stores: OwnerStore[] }>("/owner/stores", { token: session!.token });
+      const r = await apiFetch<{ stores: OwnerStore[] }>("/owner/stores", { token: session.token });
       setOwnerStores(r.stores);
     } catch {
       toast.error(t.loadFailed);
@@ -88,30 +88,10 @@ export default function OwnerPanel({ onBack }: { onBack: () => void }) {
 
   const loadSubmissions = async () => {
     try {
-      const r = await apiFetch<SubmissionsResponse>("/owner/submissions", { token: session!.token });
+      const r = await apiFetch<SubmissionsResponse>("/owner/submissions", { token: session.token });
       setSubmissions(r.submissions);
     } catch {
       toast.error(t.loadFailed);
-    }
-  };
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setBusy(true);
-    setLoginError("");
-    try {
-      const r = await apiFetch<{ token: string }>("/auth/login", {
-        method: "POST",
-        body: { role: "owner", pin },
-      });
-      const next = { role: "owner" as const, token: r.token };
-      saveSession(next);
-      setSession(next);
-      setPin("");
-    } catch (err) {
-      setLoginError(err instanceof Error ? err.message : "Login failed");
-    } finally {
-      setBusy(false);
     }
   };
 
@@ -195,47 +175,6 @@ export default function OwnerPanel({ onBack }: { onBack: () => void }) {
     }
   };
 
-  const handleLogout = () => {
-    clearSession();
-    setSession(null);
-  };
-
-  if (!session) {
-    return (
-      <main className="admin-page admin-page--login">
-        <div className="admin-login-card">
-          <h1 className="admin-login-card__title">{t.ownerLoginTitle}</h1>
-          <p className="admin-login-card__sub">{t.ownerLoginSub}</p>
-
-          <form onSubmit={handleLogin} className="admin-login-form">
-            <input
-              type="password"
-              inputMode="numeric"
-              maxLength={8}
-              autoFocus
-              placeholder={t.pinPlaceholder}
-              value={pin}
-              onChange={(e) => {
-                setPin(e.target.value);
-                setLoginError("");
-              }}
-              className="admin-login-input"
-              required
-            />
-            {loginError && <p className="admin-login-error">{loginError}</p>}
-            <button type="submit" className="admin-login-btn" disabled={busy}>
-              {t.unlock}
-            </button>
-          </form>
-
-          <button type="button" onClick={onBack} className="admin-back-btn">
-            <ArrowLeft size={16} /> {t.backToApp}
-          </button>
-        </div>
-      </main>
-    );
-  }
-
   return (
     <main className="admin-page">
       <header className="admin-header">
@@ -267,7 +206,7 @@ export default function OwnerPanel({ onBack }: { onBack: () => void }) {
           </button>
         </div>
 
-        <button type="button" onClick={handleLogout} className="admin-reset-btn">
+        <button type="button" onClick={onLogout} className="admin-reset-btn">
           <LogOut size={14} /> {t.logout}
         </button>
       </header>
