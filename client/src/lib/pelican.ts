@@ -47,7 +47,7 @@ function cleanDigits(raw: string): string {
   return raw.replace(/[Oo]/g, "0").replace(/[Il|]/g, "1").replace(/\D/g, "");
 }
 
-export function extractPelicanNumber(ocrText: string): string | null {
+export function extractPelicanNumber(ocrText: string, strict = false): string | null {
   if (!ocrText) return null;
   const text = normalizeOcrText(ocrText);
 
@@ -55,7 +55,7 @@ export function extractPelicanNumber(ocrText: string): string | null {
   const labelMatch = text.match(/barcode[s]?[\s:\-_]*([0-9OlI\s\-]{8,24})/i);
   if (labelMatch && labelMatch[1]) {
     const cleaned = cleanDigits(labelMatch[1]);
-    const validated = normalizeBarcodeCandidate(cleaned);
+    const validated = normalizeBarcodeCandidate(cleaned, strict);
     if (validated) return validated;
   }
 
@@ -66,13 +66,13 @@ export function extractPelicanNumber(ocrText: string): string | null {
     if (/barcode/i.test(line)) {
       // Check current line after the word barcode
       const afterPart = cleanDigits(line.replace(/.*barcode[s]?[\s:\-_]*/i, ""));
-      const afterValidated = normalizeBarcodeCandidate(afterPart);
+      const afterValidated = normalizeBarcodeCandidate(afterPart, strict);
       if (afterValidated) return afterValidated;
 
       // Check next line
       if (i + 1 < lines.length) {
         const nextLineDigits = cleanDigits(lines[i + 1].trim());
-        const nextValidated = normalizeBarcodeCandidate(nextLineDigits);
+        const nextValidated = normalizeBarcodeCandidate(nextLineDigits, strict);
         if (nextValidated) return nextValidated;
       }
     }
@@ -82,21 +82,23 @@ export function extractPelicanNumber(ocrText: string): string | null {
   const cleanedAll = text.replace(/[Oo](?=\d)/g, "0").replace(/[Il|](?=\d)/g, "1");
   const all14 = cleanedAll.match(/\b\d{14}\b/g) || cleanedAll.match(/\d{14}/g);
   if (all14 && all14.length > 0) {
-    const validated = normalizeBarcodeCandidate(all14[0]);
+    const validated = normalizeBarcodeCandidate(all14[0], strict);
     if (validated) return validated;
   }
 
   // 4. Search for 13-digit EAN-13 (often displayed on screens, padded to 14 in Pelican)
   const all13 = cleanedAll.match(/\b\d{13}\b/g);
   if (all13 && all13.length > 0) {
-    const validated = normalizeBarcodeCandidate(all13[0]);
+    const validated = normalizeBarcodeCandidate(all13[0], strict);
     if (validated) return validated;
   }
+
+  if (strict) return null;
 
   // 5. Search for any 8-18 digit sequence (GTIN, UPC, EAN-8, internal CODE128)
   const general = cleanedAll.match(/\b\d{8,18}\b/g);
   if (general && general.length > 0) {
-    const validated = normalizeBarcodeCandidate(general[0]);
+    const validated = normalizeBarcodeCandidate(general[0], strict);
     if (validated) return validated;
   }
 
@@ -111,7 +113,7 @@ export function extractPelicanNumber(ocrText: string): string | null {
  *   EAN-13 and return as-is if valid.
  * - Other lengths are returned as-is (internal CODE128 codes).
  */
-function normalizeBarcodeCandidate(digits: string): string | null {
+function normalizeBarcodeCandidate(digits: string, strict = false): string | null {
   if (!digits || digits.length < 8) return null;
 
   // Standard GTIN lengths: validate directly
@@ -127,8 +129,9 @@ function normalizeBarcodeCandidate(digits: string): string | null {
     return null;
   }
 
-  // Non-standard length: accept as internal code, but reject obvious OCR garbage
-  if (/^\d{8,18}$/.test(digits)) return digits;
+  // Non-standard length: accept as internal code only outside the scanner —
+  // strict mode (camera path) rejects these to prevent OCR garbage.
+  if (!strict && /^\d{8,18}$/.test(digits)) return digits;
   return null;
 }
 

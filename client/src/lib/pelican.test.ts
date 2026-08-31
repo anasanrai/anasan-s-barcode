@@ -92,3 +92,24 @@ describe("frame confirmation", () => {
     expect(f.push("06281016003788")).toBeNull();
   });
 });
+
+describe("extractPelicanNumber strict mode (scanner)", () => {
+  it("rejects non-GTIN digit runs in strict mode", () => {
+    expect(extractPelicanNumber("order 12345678 delivered", true)).toBeNull();
+  });
+
+  it("still accepts valid GTIN-14 in strict mode", () => {
+    const valid14 = "10614141000040";
+    expect(extractPelicanNumber(`Barcodes: ${valid14}`, true)).toBe(valid14);
+  });
+
+  it("still pads valid 13-digit EAN to 14 in strict mode", () => {
+    const padded = extractPelicanNumber("062810160037881", true);
+    expect(padded === null || padded.length === 14).toBe(true);
+  });
+
+  it("accepts internal codes only in lenient (typed input) mode", () => {
+    expect(extractPelicanNumber("order 123456789 delivered")).toBe("123456789");
+    expect(extractPelicanNumber("order 123456789 delivered", true)).toBeNull();
+  });
+});

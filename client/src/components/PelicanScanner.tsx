@@ -187,7 +187,8 @@ function getDetector(): Promise<BarcodeDetectorInstance | null> {
   return detectorPromise;
 }
 
-// ZXing (pure JS, bundled): works offline on every browser, including iOS Safari
+// ZXing (pure JS, bundled): works offline on every browser, including iOS Safari.
+// Narrow format hints + no TRY_HARDER keep decode time ~tens of milliseconds.
 type ZXingReader = { decodeFromCanvas: (canvas: HTMLCanvasElement) => { getText: () => string } };
 let zxingPromise: Promise<ZXingReader | null> | null = null;
 
@@ -195,9 +196,19 @@ function getZxing(): Promise<ZXingReader | null> {
   if (zxingPromise) return zxingPromise;
   zxingPromise = (async () => {
     try {
-      const { BrowserMultiFormatReader } = await import("@zxing/browser");
+      const [{ BrowserMultiFormatReader }, { BarcodeFormat, DecodeHintType }] = await Promise.all([
+        import("@zxing/browser"),
+        import("@zxing/library"),
+      ]);
       const hints = new Map();
-      hints.set(2 /* TRY_HARDER */, true);
+      hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+        BarcodeFormat.CODE_128,
+        BarcodeFormat.EAN_13,
+        BarcodeFormat.EAN_8,
+        BarcodeFormat.UPC_A,
+        BarcodeFormat.ITF,
+        BarcodeFormat.CODE_39,
+      ]);
       return new (BrowserMultiFormatReader as unknown as new (hints?: Map<number, unknown>) => ZXingReader)(hints);
     } catch {
       return null;
@@ -206,40 +217,61 @@ function getZxing(): Promise<ZXingReader | null> {
   return zxingPromise;
 }
 
-async function scanCanvas(canvas: HTMLCanvasElement, timeoutMs = 1800): Promise<string | null> {
-  // 1. Hardware BarcodeDetector (instant when available)
+// ZXing decode time scales with pixel count — decode on a capped-size copy
+function downscaleForDecode(canvas: HTMLCanvasElement, maxW = 640): HTMLCanvasElement {
+  if (canvas.width <= maxW) return canvas;
+  const scale = maxW / canvas.width;
+  const off = document.createElement("canvas");
+  off.width = maxW;
+  off.height = Math.round(canvas.height * scale);
+  const ctx = off.getContext("2d", { willReadFrequently: true });
+  if (!ctx) return canvas;
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(canvas, 0, 0, off.width, off.height);
+  return off;
+}
+
+function candidateFromRawValue(val: string): string | null {
+  const raw = val.trim();
+  const cand = extractPelicanNumber(raw) ?? (/^\d{8,24}$/.test(raw) ? raw : null);
+  return cand && validateBarcode(cand).valid ? cand : null;
+}
+
+async function scanCanvas(canvas: HTMLCanvasElement, timeoutMs = 1800, allowServer = true): Promise<string | null> {
+  // 1. Fast decode: hardware BarcodeDetector then ZXing (checksummed symbology read — instant)
   try {
     const det = await getDetector();
     if (det) {
       const barcodes = await det.detect(canvas);
       for (const b of barcodes) {
-        const val = (b.rawValue ?? "").trim();
-        const cand = extractPelicanNumber(val) ?? (/^\d{8,24}$/.test(val) ? val : null);
-        if (cand && validateBarcode(cand).valid) return cand;
+        const cand = candidateFromRawValue(b.rawValue ?? "");
+        if (cand) return cand;
       }
     }
   } catch {}
 
-  // 2. ZXing decoder (bundled, works offline on every browser incl. iOS Safari)
   try {
     const zxing = await getZxing();
     if (zxing) {
-      const result = zxing.decodeFromCanvas(canvas);
-      const val = result.getText().trim();
-      const cand = extractPelicanNumber(val) ?? (/^\d{8,24}$/.test(val) ? val : null);
-      if (cand && validateBarcode(cand).valid) return cand;
+      const result = zxing.decodeFromCanvas(downscaleForDecode(canvas));
+      const cand = candidateFromRawValue(result.getText());
+      if (cand) return cand;
     }
   } catch {}
 
-  // 3. Parallel OCR: local Tesseract + server OCR
+  // 2. OCR fallback: strict extraction — GTIN check digit must pass
   const localPromise = workerReady
     ? ocrCanvas(canvas)
-        .then((t) => extractPelicanNumber(t))
+        .then((t) => extractPelicanNumber(t, true))
         .catch(() => null)
     : Promise.resolve(null);
 
+  if (!allowServer) {
+    return localPromise;
+  }
+
   const serverPromise = serverOcr(canvas, timeoutMs)
-    .then((t) => (t ? extractPelicanNumber(t) : null))
+    .then((t) => (t ? extractPelicanNumber(t, true) : null))
     .catch(() => null);
 
   const first = await Promise.race([
@@ -366,7 +398,8 @@ export default function PelicanScanner({ onDetected }: Props) {
       if (!crop) return;
       busyRef.current = true;
       try {
-        const cand = await scanCanvas(crop, 1500);
+        // Local-only in the auto loop: no per-frame network calls
+        const cand = await scanCanvas(crop, 800, false);
         if (cand) {
           const confirmed = confirmRef.current.push(cand);
           if (confirmed) {
@@ -384,8 +417,9 @@ export default function PelicanScanner({ onDetected }: Props) {
     }, 280);
   }, [captureCrop, handleMatchFound]);
 
-  // Manual Capture: instant shutter — crop + full frame scanned in parallel,
-  // first check-digit-valid read wins (user explicitly aimed, so no multi-frame wait)
+  // Manual Capture: staged for speed —
+  // Stage 1 (instant): checksummed decode (detector + ZXing) on crop & full in parallel
+  // Stage 2: strict OCR race on the crop (local warm worker vs server, bounded)
   const handleManualCapture = useCallback(async () => {
     if (capturing) return;
 
@@ -405,15 +439,42 @@ export default function PelicanScanner({ onDetected }: Props) {
         return;
       }
 
-      // Scan crop and full frame concurrently; first valid candidate wins
-      const candidates = [crop, full].filter((c): c is HTMLCanvasElement => Boolean(c));
-      const scans = candidates.map((c) => scanCanvas(c, 2200).catch(() => null));
-      const first = await Promise.race(
-        scans.map((p) => p.then((v) => (v ? { v } : null))),
+      const decode = async (c: HTMLCanvasElement): Promise<string | null> => {
+        try {
+          const det = await getDetector();
+          if (det) {
+            for (const b of await det.detect(c)) {
+              const cand = candidateFromRawValue(b.rawValue ?? "");
+              if (cand) return cand;
+            }
+          }
+        } catch {}
+        try {
+          const zxing = await getZxing();
+          if (zxing) {
+            const result = zxing.decodeFromCanvas(downscaleForDecode(c));
+            const cand = candidateFromRawValue(result.getText());
+            if (cand) return cand;
+          }
+        } catch {}
+        return null;
+      };
+
+      const frames = [crop, full].filter((c): c is HTMLCanvasElement => Boolean(c));
+      const decoded = await Promise.race(
+        frames.map((f) => decode(f).then((v) => (v ? { v } : null))),
       );
-      let cand = first?.v ?? null;
+      if (decoded?.v && validateBarcode(decoded.v).valid) {
+        handleMatchFound(decoded.v);
+        return;
+      }
+
+      // Stage 2: OCR race across all frames, first strict-valid result wins
+      const ocrJobs = frames.map((f) => scanCanvas(f, 1800, true).catch(() => null));
+      const ocrFirst = await Promise.race(ocrJobs.map((p) => p.then((v) => (v ? { v } : null))));
+      let cand: string | null = ocrFirst?.v ?? null;
       if (!cand) {
-        const all = await Promise.all(scans);
+        const all = await Promise.all(ocrJobs);
         cand = all.find((v) => v) ?? null;
       }
 
@@ -518,21 +579,24 @@ export default function PelicanScanner({ onDetected }: Props) {
     e.target.value = "";
     if (!file) return;
     const url = URL.createObjectURL(file);
+    const loadImage = async (src: string): Promise<HTMLImageElement> => {
+      const img = new Image();
+      img.src = src;
+      await new Promise<void>((res, rej) => {
+        img.onload = () => res();
+        img.onerror = () => rej(new Error("img"));
+      });
+      return img;
+    };
     try {
       try {
         const detector = await getDetector();
         if (detector) {
-          const img = new Image();
-          img.src = url;
-          await new Promise<void>((res, rej) => {
-            img.onload = () => res();
-            img.onerror = () => rej(new Error("img"));
-          });
+          const img = await loadImage(url);
           const barcodes = await detector.detect(img);
           for (const b of barcodes) {
-            const val = (b.rawValue ?? "").trim();
-            const cand = extractPelicanNumber(val) ?? (/^\d{8,24}$/.test(val) ? val : null);
-            if (cand && validateBarcode(cand).valid) {
+            const cand = candidateFromRawValue(b.rawValue ?? "");
+            if (cand) {
               URL.revokeObjectURL(url);
               handleMatchFound(cand);
               return;
@@ -543,16 +607,10 @@ export default function PelicanScanner({ onDetected }: Props) {
       try {
         const zxing = await getZxing();
         if (zxing) {
-          const img = new Image();
-          img.src = url;
-          await new Promise<void>((res, rej) => {
-            img.onload = () => res();
-            img.onerror = () => rej(new Error("img"));
-          });
-          const result = zxing.decodeFromCanvas(canvasFromImage(img));
-          const val = result.getText().trim();
-          const cand = extractPelicanNumber(val) ?? (/^\d{8,24}$/.test(val) ? val : null);
-          if (cand && validateBarcode(cand).valid) {
+          const img = await loadImage(url);
+          const result = zxing.decodeFromCanvas(downscaleForDecode(canvasFromImage(img)));
+          const cand = candidateFromRawValue(result.getText());
+          if (cand) {
             URL.revokeObjectURL(url);
             handleMatchFound(cand);
             return;
@@ -561,7 +619,7 @@ export default function PelicanScanner({ onDetected }: Props) {
       } catch {}
       const text = await ocrImageSrc(url);
       URL.revokeObjectURL(url);
-      const candidate = extractPelicanNumber(text);
+      const candidate = extractPelicanNumber(text, true);
       if (candidate && validateBarcode(candidate).valid) {
         handleMatchFound(candidate);
       }

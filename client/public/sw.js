@@ -1,8 +1,9 @@
-const CACHE = "pelican-barcode-v7";
+const CACHE = "pelican-barcode-v8";
 
 // Injected by build script with the current hashed asset list
 const PRECACHE_ASSETS = self.__PRECACHE_ASSETS || [];
 
+// Small shell — precached during install so the SW activates instantly
 const APP_SHELL = [
   "/",
   "/index.html",
@@ -13,6 +14,11 @@ const APP_SHELL = [
   "/icon-512.png",
   "/og.svg",
   "/about/anasan.jpg",
+];
+
+// Heavy OCR assets (~14MB) — warmed in the background after activation so
+// offline scanning works, without delaying the SW update
+const HEAVY_ASSETS = [
   "/tessdata/eng.traineddata.gz",
   "/tesseract/worker.min.js",
   "/tesseract/tesseract-core-simd-lstm.wasm.js",
@@ -21,23 +27,29 @@ const APP_SHELL = [
   "/tesseract/tesseract-core-lstm.wasm",
 ];
 
-const PRECACHE_URLS = [...APP_SHELL, ...PRECACHE_ASSETS];
-
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(CACHE)
-      .then((cache) => Promise.allSettled(PRECACHE_URLS.map((url) => cache.add(url))))
+      .then((cache) => Promise.allSettled([...APP_SHELL, ...PRECACHE_ASSETS].map((url) => cache.add(url))))
       .then(() => self.skipWaiting())
   );
 });
 
+function warmHeavyAssets() {
+  return caches.open(CACHE).then((cache) =>
+    Promise.allSettled(HEAVY_ASSETS.map((url) => cache.add(url)))
+  );
+}
+
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches
-      .keys()
-      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))))
-      .then(() => self.clients.claim())
+    (async () => {
+      const keys = await caches.keys();
+      await Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)));
+      await self.clients.claim();
+      await warmHeavyAssets();
+    })()
   );
 });
 
@@ -50,6 +62,7 @@ function isStaticAsset(url) {
     url.pathname.endsWith(".png") ||
     url.pathname.endsWith(".json") ||
     url.pathname.endsWith(".gz") ||
+    url.pathname.endsWith(".wasm") ||
     url.pathname.endsWith(".woff2")
   );
 }
