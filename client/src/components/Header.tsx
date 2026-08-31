@@ -126,7 +126,6 @@ export default function Header({ onOpenLeaderboard, onGoToAdmin, onOpenAbout }: 
         )}
 
         <a
-          type="button"
           className="hs-github-btn"
           href="https://github.com/anasanrai/anasan-s-barcode"
           target="_blank"

@@ -3,6 +3,11 @@ import { createServer } from "http";
 import net from "net";
 import { serveStatic, setupVite } from "./vite";
 
+// Load .env for local dev / self-hosting (Vercel injects env vars itself)
+try {
+  process.loadEnvFile();
+} catch {}
+
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
     const server = net.createServer();
@@ -28,15 +33,29 @@ async function startServer() {
 
   app.use(express.json({ limit: "10mb" }));
 
-  // Mount API endpoints for local dev
-  app.all("/api/ocr", async (req, res) => {
-    try {
-      const { default: ocrHandler } = await import("../../api/ocr");
-      await ocrHandler(req as any, res as any);
-    } catch (err) {
-      res.status(500).json({ error: String(err) });
-    }
-  });
+  // Mount API endpoints for local dev (Vercel serves these from /api in production)
+  const apiRoutes: Array<[string, string]> = [
+    ["/api/ocr", "../../api/ocr"],
+    ["/api/auth/login", "../../api/auth/login"],
+    ["/api/leaderboard", "../../api/leaderboard"],
+    ["/api/stores", "../../api/stores"],
+    ["/api/my-store", "../../api/my-store/index"],
+    ["/api/my-store/metrics", "../../api/my-store/metrics"],
+    ["/api/my-store/performer", "../../api/my-store/performer"],
+    ["/api/owner/stores", "../../api/owner/stores"],
+    ["/api/owner/submissions", "../../api/owner/submissions"],
+  ];
+
+  for (const [route, modulePath] of apiRoutes) {
+    app.all(route, async (req, res) => {
+      try {
+        const { default: handler } = await import(modulePath);
+        await handler(req, res);
+      } catch (err) {
+        res.status(500).json({ error: String(err) });
+      }
+    });
+  }
 
   // development mode uses Vite, production mode uses static files
   if (process.env.NODE_ENV === "development") {
