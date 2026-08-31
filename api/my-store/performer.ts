@@ -1,9 +1,9 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { and, eq, ne } from "drizzle-orm";
-import { getDb } from "../_lib/db";
-import { readJson, requireRole, sendError, withApi } from "../_lib/http";
-import { getISOWeek } from "../../shared/scoring";
-import { performers } from "../../drizzle/schema";
+import { getDb } from "../_lib/db.js";
+import { readJson, requireRole, sendError, withApi } from "../_lib/http.js";
+import { getISOWeek } from "../../shared/scoring.js";
+import { performers } from "../../drizzle/schema.js";
 
 type PerformerBody = {
   name?: string;

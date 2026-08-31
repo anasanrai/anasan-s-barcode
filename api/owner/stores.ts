@@ -1,10 +1,10 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { asc, eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
-import { getDb } from "../_lib/db";
-import { hashPin } from "../_lib/auth";
-import { readJson, requireRole, sendError, withApi } from "../_lib/http";
-import { stores } from "../../drizzle/schema";
+import { getDb } from "../_lib/db.js";
+import { hashPin } from "../_lib/auth.js";
+import { readJson, requireRole, sendError, withApi } from "../_lib/http.js";
+import { stores } from "../../drizzle/schema.js";
 
 type CreateBody = { name?: string; branch?: string; pin?: string };
 type PatchBody = { id?: string; name?: string; branch?: string; pin?: string; active?: boolean };

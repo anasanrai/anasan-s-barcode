@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { getDb } from "../_lib/db";
-import { readJson, requireRole, sendError, withApi } from "../_lib/http";
-import { getISOWeek } from "../../shared/scoring";
-import { submissions } from "../../drizzle/schema";
+import { getDb } from "../_lib/db.js";
+import { readJson, requireRole, sendError, withApi } from "../_lib/http.js";
+import { getISOWeek } from "../../shared/scoring.js";
+import { submissions } from "../../drizzle/schema.js";
 
 type MetricsBody = {
   totalOrders?: number;

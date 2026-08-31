@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { ensureSchema } from "./db";
-import { getTokenFromRequest, verifyToken, type TokenPayload } from "./auth";
+import { ensureSchema } from "./db.js";
+import { getTokenFromRequest, verifyToken, type TokenPayload } from "./auth.js";
 
 export function setCors(res: VercelResponse): void {
   res.setHeader("Access-Control-Allow-Origin", "*");

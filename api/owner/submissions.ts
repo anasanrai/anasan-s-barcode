@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { desc, eq } from "drizzle-orm";
-import { getDb } from "../_lib/db";
-import { readJson, requireRole, sendError, withApi } from "../_lib/http";
-import { performers, stores, submissions } from "../../drizzle/schema";
+import { getDb } from "../_lib/db.js";
+import { readJson, requireRole, sendError, withApi } from "../_lib/http.js";
+import { performers, stores, submissions } from "../../drizzle/schema.js";
 
 type CorrectBody = {
   storeId?: string;

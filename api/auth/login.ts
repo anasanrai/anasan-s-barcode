@@ -1,9 +1,9 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { eq } from "drizzle-orm";
-import { getDb } from "../_lib/db";
-import { rateLimit, signToken, verifyPin } from "../_lib/auth";
-import { readJson, requireRole, sendError, withApi } from "../_lib/http";
-import { stores } from "../../drizzle/schema";
+import { getDb } from "../_lib/db.js";
+import { rateLimit, signToken, verifyPin } from "../_lib/auth.js";
+import { readJson, requireRole, sendError, withApi } from "../_lib/http.js";
+import { stores } from "../../drizzle/schema.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   await withApi(req, res, async () => {

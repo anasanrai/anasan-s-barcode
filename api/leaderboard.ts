@@ -1,9 +1,9 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { and, eq } from "drizzle-orm";
-import { getDb } from "./_lib/db";
-import { sendError, withApi } from "./_lib/http";
-import { getISOWeek, rankStores } from "../shared/scoring";
-import { performers, stores, submissions } from "../drizzle/schema";
+import { getDb } from "./_lib/db.js";
+import { sendError, withApi } from "./_lib/http.js";
+import { getISOWeek, rankStores } from "../shared/scoring.js";
+import { performers, stores, submissions } from "../drizzle/schema.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   await withApi(req, res, async () => {
