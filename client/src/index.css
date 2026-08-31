@@ -1466,6 +1466,10 @@ html[dir="rtl"] .number-input__actions {
   padding: 8px 14px; border-radius: var(--radius-md);
   margin: 0 0 12px;
 }
+.admin-panel__title--spaced {
+  margin-top: 28px; padding-top: 20px;
+  border-top: 1px solid var(--color-border);
+}
 .manager-photo-preview {
   width: 96px; height: 120px; border-radius: var(--radius-md);
   background: var(--color-surface-raised);
