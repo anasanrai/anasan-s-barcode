@@ -1,4 +1,4 @@
-const CACHE = "pelican-barcode-v8";
+const CACHE = "pelican-barcode-v9";
 
 // Injected by build script with the current hashed asset list
 const PRECACHE_ASSETS = self.__PRECACHE_ASSETS || [];

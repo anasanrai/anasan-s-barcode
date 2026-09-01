@@ -50,8 +50,14 @@ export default function StarGalleryPage({ onBack }: Props) {
         </div>
       </header>
 
-      <section className="star-gallery-page__grid">
-        {performers.map((performer, index) => (
+      {performers.length === 0 ? (
+        <div className="leaderboard-empty">
+          <Trophy size={22} className="trophy-gold" />
+          <p>{t.noSubmissions}</p>
+        </div>
+      ) : (
+        <section className="star-gallery-page__grid">
+          {performers.map((performer, index) => (
           <article key={performer.id} className="star-gallery-card">
             <div className="star-gallery-card__media">
               <span className={`star-gallery-card__rank ${index < 3 ? `star-gallery-card__rank--${index}` : ""}`}>
@@ -94,7 +100,8 @@ export default function StarGalleryPage({ onBack }: Props) {
             </div>
           </article>
         ))}
-      </section>
+        </section>
+      )}
     </main>
   );
 }

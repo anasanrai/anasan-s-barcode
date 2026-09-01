@@ -12,7 +12,7 @@ interface Props {
 
 export default function LeaderboardModal({ isOpen, onClose, onOpenStars }: Props) {
   const { t } = useLang();
-  const { starGallery, starPerformer, topStores } = useLeaderboard();
+  const { starGallery, starPerformer, topStores, offline, week } = useLeaderboard();
 
   if (!isOpen) return null;
 
@@ -37,11 +37,23 @@ export default function LeaderboardModal({ isOpen, onClose, onOpenStars }: Props
         </div>
 
         <div className="leaderboard-modal-sheet__content">
+          {offline && week && (
+            <div className="leaderboard-offline-hint">
+              {t.offlineHint} · {week}
+            </div>
+          )}
           <StarPerformerCard
             performers={starGallery.length > 0 ? starGallery : [starPerformer]}
             onOpenGallery={onOpenStars}
           />
-          <TopStoresLeaderboard stores={topStores} />
+          {topStores.length > 0 ? (
+            <TopStoresLeaderboard stores={topStores} />
+          ) : (
+            <div className="leaderboard-empty">
+              <Trophy size={22} className="trophy-gold" />
+              <p>{t.noSubmissions}</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

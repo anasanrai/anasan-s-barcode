@@ -36,6 +36,7 @@ async function startServer() {
   // Mount API endpoints for local dev (Vercel serves these from /api in production)
   const apiRoutes: Array<[string, string]> = [
     ["/api/ocr", "../../api/ocr"],
+    ["/api/health", "../../api/health"],
     ["/api/auth/login", "../../api/auth/login"],
     ["/api/leaderboard", "../../api/leaderboard"],
     ["/api/stores", "../../api/stores"],
