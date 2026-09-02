@@ -500,13 +500,21 @@ export default function PelicanScanner({ onDetected }: Props) {
     }
   }, [capturing, captureCrop, captureFull, handleMatchFound, scannedBarcode, startAutoLoop]);
 
+  // Eagerly warm decoders on mount for instant capture — keep desktop/mobile snappy
+  useEffect(() => {
+    void getWorker().catch(() => {});
+    void getZxing().catch(() => {});
+    void getDetector().catch(() => {});
+  }, []);
+
   const startCamera = useCallback(async () => {
     setCameraError(false);
     setNeedsGesture(false);
     setStarting(true);
     setScannedBarcode(null);
     stopCamera();
-    confirmRef.current = new FrameConfirmation(3);
+    // 2-frame confirmation: balance speed (~560ms) + accuracy (check-digit still enforced)
+    confirmRef.current = new FrameConfirmation(2);
 
     if (!navigator.mediaDevices?.getUserMedia) {
       setCameraError(true);

@@ -1807,3 +1807,82 @@ html[dir="rtl"] .number-input__actions {
 .about-footer__link:hover {
   border-color: var(--color-accent); color: var(--color-text);
 }
+
+/* ═══════════ Device Responsiveness — Mobile vs Big Screen ═══════════ */
+
+/* ── Phone: <640px ── */
+@media (max-width: 640px) {
+  .hs-header { padding: calc(8px + env(safe-area-inset-top)) 12px 8px; gap: 8px; }
+  .hs-logo__img { height: 32px; }
+  .hs-header__actions { gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  .hs-leaderboard-btn { padding: 6px 10px; font-size: 12px; }
+  .hs-leaderboard-btn span { display: none; }
+  .hs-install-btn { padding: 6px 12px; font-size: 12px; }
+  .hs-lang-btn { padding: 6px 10px; font-size: 12px; }
+  .pelican-rect { width: 88vw; height: 52vw; max-height: 200px; }
+  .pelican-hint { font-size: 11px; padding: 6px 12px; margin-top: 14px; }
+  .pelican-manual { bottom: calc(72px + env(safe-area-inset-bottom)); padding: 12px 22px; font-size: 14px; }
+  .pelican-torch { top: calc(8px + env(safe-area-inset-top)); right: 10px; padding: 7px 10px; font-size: 11px; }
+  .pelican-fallback { bottom: calc(14px + env(safe-area-inset-bottom)); }
+  .generator { padding: 10px 14px 20px; gap: 10px; max-width: 100%; }
+  .generator__title { font-size: 22px; }
+  .generator__subtitle { font-size: 14px; }
+  .number-input { font-size: 17px; padding: 12px 70px 12px 14px; }
+  .generator__mode-btn { padding: 7px 14px; font-size: 13px; }
+  .generator__format-btn { padding: 6px 12px; font-size: 11px; }
+  .star-gallery-page { padding: 14px 12px 24px; }
+  .star-gallery-page__header { gap: 10px; }
+  .star-gallery-page__grid { grid-template-columns: 1fr; gap: 12px; }
+  .star-gallery-card__media { aspect-ratio: 16 / 11; }
+  .about-hero__name { font-size: 24px; }
+  .about-hero__avatar-ring { width: 110px; height: 110px; }
+  .about-projects__grid { grid-template-columns: 1fr; }
+  .admin-page { padding: 12px 12px 24px; }
+  .admin-stores-table { overflow-x: auto; }
+}
+
+/* ── Tablet: 641–1099px ── */
+@media (min-width: 641px) and (max-width: 1099px) {
+  .hs-header { padding: calc(10px + env(safe-area-inset-top)) 20px 10px; }
+  .pelican-rect { width: 70vw; height: 40vw; max-width: 520px; max-height: 300px; }
+  .star-gallery-page { padding: 20px 20px 32px; }
+  .star-gallery-page__grid { grid-template-columns: repeat(2, 1fr); }
+  .about-projects__grid { grid-template-columns: repeat(2, 1fr); }
+  .generator { max-width: 540px; }
+}
+
+/* ── Desktop / Big Screen: ≥1100px ── */
+@media (min-width: 1100px) {
+  .hs-header { padding: calc(14px + env(safe-area-inset-top)) 28px 12px; }
+  .hs-logo__img { height: 44px; }
+  .hs-header__actions { gap: 10px; }
+  .desktop-stage { padding: calc(80px + env(safe-area-inset-top)) 32px calc(100px + env(safe-area-inset-bottom)); gap: 24px; }
+  .desktop-stage__scanner {
+    max-width: 700px; height: min(640px, calc(100dvh - 200px));
+    box-shadow: 0 24px 64px rgba(0,0,0,0.5), 0 0 0 1px var(--color-border);
+    border-radius: var(--radius-lg);
+  }
+  .pelican-rect { width: 420px; height: 260px; }
+  .pelican-scan { border-radius: var(--radius-lg); overflow: hidden; }
+  .pelican-hint { font-size: 14px; padding: 10px 18px; }
+  .pelican-manual { padding: 16px 32px; font-size: 16px; bottom: 88px; }
+  .generator { max-width: 600px; padding: 20px 28px 32px; gap: 14px; }
+  .generator__title { font-size: 34px; }
+  .generator__subtitle { font-size: 17px; }
+  .number-input { font-size: 22px; padding: 16px 90px 16px 20px; }
+  .star-gallery-page { padding: 28px 32px 48px; max-width: 1240px; margin: 0 auto; }
+  .star-gallery-page__grid { gap: 20px; }
+  .about-page { padding: 40px 48px 80px; max-width: 900px; margin: 0 auto; }
+  .about-hero__name { font-size: 34px; }
+  .about-hero__avatar-ring { width: 148px; height: 148px; }
+}
+
+/* ── Landscape on phones: keep scanner usable ── */
+@media (max-height: 500px) and (orientation: landscape) {
+  .pelican-rect { width: 42vw; height: 22vw; max-height: 160px; }
+  .pelican-hint { display: none; }
+  .pelican-manual { bottom: 12px; padding: 10px 20px; font-size: 13px; }
+  .pelican-fallback { display: none; }
+  .hs-header { padding-top: 6px; }
+  .generator { padding-top: 60px; }
+}
