@@ -1,6 +1,6 @@
 import { Flashlight, ImageUp, Camera, Scan, RotateCcw, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { detectBarcodeFormat, extractPelicanNumber, FrameConfirmation, validateBarcode, type BarcodeFormat } from "@/lib/pelican";
+import { detectBarcodeFormat, extractPelicanNumber, validateBarcode } from "@/lib/pelican";
 import { useLang } from "@/lib/i18n";
 import BarcodePreview from "./BarcodePreview";
 
@@ -238,51 +238,44 @@ function candidateFromRawValue(val: string): string | null {
   return cand && validateBarcode(cand).valid ? cand : null;
 }
 
-async function scanCanvas(canvas: HTMLCanvasElement, timeoutMs = 1800, allowServer = true): Promise<string | null> {
-  // 1. Fast decode: hardware BarcodeDetector then ZXing (checksummed symbology read — instant)
+async function detectHardware(canvas: HTMLCanvasElement): Promise<string | null> {
   try {
     const det = await getDetector();
-    if (det) {
-      const barcodes = await det.detect(canvas);
-      for (const b of barcodes) {
-        const cand = candidateFromRawValue(b.rawValue ?? "");
-        if (cand) return cand;
-      }
-    }
-  } catch {}
-
-  try {
-    const zxing = await getZxing();
-    if (zxing) {
-      const result = zxing.decodeFromCanvas(downscaleForDecode(canvas));
-      const cand = candidateFromRawValue(result.getText());
+    if (!det) return null;
+    const barcodes = await det.detect(canvas);
+    for (const b of barcodes) {
+      const cand = candidateFromRawValue(b.rawValue ?? "");
       if (cand) return cand;
     }
   } catch {}
+  return null;
+}
 
-  // 2. OCR fallback: strict extraction — GTIN check digit must pass
-  const localPromise = workerReady
-    ? ocrCanvas(canvas)
-        .then((t) => extractPelicanNumber(t, true))
-        .catch(() => null)
-    : Promise.resolve(null);
-
-  if (!allowServer) {
-    return localPromise;
+async function detectZxing(canvas: HTMLCanvasElement): Promise<string | null> {
+  try {
+    const zxing = await getZxing();
+    if (!zxing) return null;
+    const result = zxing.decodeFromCanvas(downscaleForDecode(canvas, 480));
+    return candidateFromRawValue(result.getText());
+  } catch {
+    return null;
   }
+}
 
-  const serverPromise = serverOcr(canvas, timeoutMs)
-    .then((t) => (t ? extractPelicanNumber(t, true) : null))
-    .catch(() => null);
+async function detectOcr(canvas: HTMLCanvasElement): Promise<string | null> {
+  try {
+    const text = await ocrCanvas(canvas);
+    return extractPelicanNumber(text, true);
+  } catch {
+    return null;
+  }
+}
 
-  const first = await Promise.race([
-    localPromise.then((v) => (v ? { v } : null)),
-    serverPromise.then((v) => (v ? { v } : null)),
-  ]);
-  if (first?.v) return first.v;
-
-  const results = await Promise.all([localPromise, serverPromise]);
-  return results[0] ?? results[1] ?? null;
+/** Auto-loop: hardware then OCR. Skip ZXing — it stalls 50–300ms on screen-of-digits (no printed bars). */
+async function scanAuto(canvas: HTMLCanvasElement): Promise<string | null> {
+  const hw = await detectHardware(canvas);
+  if (hw) return hw;
+  return detectOcr(canvas);
 }
 
 async function ocrImageSrc(src: string): Promise<string> {
@@ -298,7 +291,7 @@ export default function PelicanScanner({ onDetected }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const confirmRef = useRef(new FrameConfirmation(3));
+  const cropCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const busyRef = useRef(false);
   const timerRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -342,7 +335,7 @@ export default function PelicanScanner({ onDetected }: Props) {
     }
   };
 
-  // Crop centered scan zone — 640px is sweet spot for 14-digit OCR: sharp enough, ~40% faster than 800
+  // Reuse one crop canvas — allocating 640px every 200ms was GC + latency
   const captureCrop = useCallback((): HTMLCanvasElement | null => {
     const v = videoRef.current;
     if (!v || v.readyState < 2 || v.videoWidth === 0) return null;
@@ -356,32 +349,19 @@ export default function PelicanScanner({ onDetected }: Props) {
     const targetW = 640;
     const targetH = Math.round((targetW * sh) / sw);
 
-    const off = document.createElement("canvas");
-    off.width = targetW;
-    off.height = targetH;
+    let off = cropCanvasRef.current;
+    if (!off) {
+      off = document.createElement("canvas");
+      cropCanvasRef.current = off;
+    }
+    if (off.width !== targetW || off.height !== targetH) {
+      off.width = targetW;
+      off.height = targetH;
+    }
     const ctx = off.getContext("2d", { willReadFrequently: true });
     if (!ctx) return null;
-    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingEnabled = false;
     ctx.drawImage(v, sx, sy, sw, sh, 0, 0, targetW, targetH);
-    return off;
-  }, []);
-
-  // Full frame capture (fallback for manual capture if target was off-center) — cap for speed
-  const captureFull = useCallback((): HTMLCanvasElement | null => {
-    const v = videoRef.current;
-    if (!v || v.readyState < 2 || v.videoWidth === 0) return null;
-    const vw = v.videoWidth;
-    const vh = v.videoHeight;
-    const targetW = 720;
-    const targetH = Math.round((targetW * vh) / vw);
-
-    const off = document.createElement("canvas");
-    off.width = targetW;
-    off.height = targetH;
-    const ctx = off.getContext("2d", { willReadFrequently: true });
-    if (!ctx) return null;
-    ctx.imageSmoothingEnabled = true;
-    ctx.drawImage(v, 0, 0, vw, vh, 0, 0, targetW, targetH);
     return off;
   }, []);
 
@@ -399,32 +379,20 @@ export default function PelicanScanner({ onDetected }: Props) {
       if (!crop) return;
       busyRef.current = true;
       try {
-        // Local-only in the auto loop: no per-frame network calls
-        const cand = await scanCanvas(crop, 800, false);
-        if (cand) {
-          const confirmed = confirmRef.current.push(cand);
-          if (confirmed) {
-            if (!validateBarcode(confirmed).valid) {
-              confirmRef.current.reset();
-              return;
-            }
-            handleMatchFound(confirmed);
-            return;
-          }
-        }
+        const cand = await scanAuto(crop);
+        if (!cand || !validateBarcode(cand).valid) return;
+        // GTIN check-digit is already a checksum — one good frame is enough (literal instant)
+        handleMatchFound(cand);
       } catch {} finally {
         busyRef.current = false;
       }
-    }, 200);
+    }, 120);
   }, [captureCrop, handleMatchFound]);
 
-  // Manual Capture: staged for speed —
-  // Stage 1 (instant): checksummed decode (detector + ZXing) on crop & full in parallel
-  // Stage 2: strict OCR race on the crop (local warm worker vs server, bounded)
+  // Manual: OCR + hardware in parallel from frame 0. ZXing does not block (screen digits have no bars).
   const handleManualCapture = useCallback(async () => {
     if (capturing) return;
 
-    // Pause auto loop immediately
     if (timerRef.current) window.clearInterval(timerRef.current);
     timerRef.current = null;
     busyRef.current = true;
@@ -433,49 +401,20 @@ export default function PelicanScanner({ onDetected }: Props) {
 
     try {
       const crop = captureCrop();
-      const full = captureFull();
-
-      if (!crop && !full) {
+      if (!crop) {
         setCaptureError(true);
         return;
       }
 
-      const decode = async (c: HTMLCanvasElement): Promise<string | null> => {
-        try {
-          const det = await getDetector();
-          if (det) {
-            for (const b of await det.detect(c)) {
-              const cand = candidateFromRawValue(b.rawValue ?? "");
-              if (cand) return cand;
-            }
-          }
-        } catch {}
-        try {
-          const zxing = await getZxing();
-          if (zxing) {
-            const result = zxing.decodeFromCanvas(downscaleForDecode(c));
-            const cand = candidateFromRawValue(result.getText());
-            if (cand) return cand;
-          }
-        } catch {}
-        return null;
-      };
-
-      const frames = [crop, full].filter((c): c is HTMLCanvasElement => Boolean(c));
-      const decoded = await Promise.race(
-        frames.map((f) => decode(f).then((v) => (v ? { v } : null))),
-      );
-      if (decoded?.v && validateBarcode(decoded.v).valid) {
-        handleMatchFound(decoded.v);
-        return;
-      }
-
-      // Stage 2: OCR race across all frames, first strict-valid result wins
-      const ocrJobs = frames.map((f) => scanCanvas(f, 1800, true).catch(() => null));
-      const ocrFirst = await Promise.race(ocrJobs.map((p) => p.then((v) => (v ? { v } : null))));
-      let cand: string | null = ocrFirst?.v ?? null;
+      const jobs = [
+        detectHardware(crop),
+        detectOcr(crop),
+        serverOcr(crop, 1200).then((t) => (t ? extractPelicanNumber(t, true) : null)).catch(() => null),
+      ];
+      const first = await Promise.race(jobs.map((p) => p.then((v) => (v ? { v } : null))));
+      let cand = first?.v ?? null;
       if (!cand) {
-        const all = await Promise.all(ocrJobs);
+        const all = await Promise.all(jobs);
         cand = all.find((v) => v) ?? null;
       }
 
@@ -484,21 +423,19 @@ export default function PelicanScanner({ onDetected }: Props) {
         return;
       }
 
-      // No match found — show retry pill
       setCaptureError(true);
       window.setTimeout(() => setCaptureError(false), 2000);
     } finally {
       setCapturing(false);
-      // If camera is still active and no barcode was scanned, resume auto scanning
       if (streamRef.current && !scannedBarcode) {
         window.setTimeout(() => {
           if (!streamRef.current || timerRef.current) return;
           busyRef.current = false;
           startAutoLoop();
-        }, 300);
+        }, 200);
       }
     }
-  }, [capturing, captureCrop, captureFull, handleMatchFound, scannedBarcode, startAutoLoop]);
+  }, [capturing, captureCrop, handleMatchFound, scannedBarcode, startAutoLoop]);
 
   // Eagerly warm decoders on mount for instant capture — keep desktop/mobile snappy
   useEffect(() => {
@@ -513,8 +450,6 @@ export default function PelicanScanner({ onDetected }: Props) {
     setStarting(true);
     setScannedBarcode(null);
     stopCamera();
-    // 2-frame confirmation: balance speed (~560ms) + accuracy (check-digit still enforced)
-    confirmRef.current = new FrameConfirmation(2);
 
     if (!navigator.mediaDevices?.getUserMedia) {
       setCameraError(true);
@@ -575,12 +510,10 @@ export default function PelicanScanner({ onDetected }: Props) {
     return () => stopCamera();
   }, [startCamera, stopCamera]);
 
+  // Keep OCR worker alive across Scan/Generate tab switches — reload was 2–5s per visit
   useEffect(() => {
-    return () => {
-      workerPromise?.then((w) => w.terminate().catch(() => {})).catch(() => {});
-      workerPromise = null;
-      workerReady = false;
-    };
+    void getWorker().catch(() => {});
+    void getDetector().catch(() => {});
   }, []);
 
   const onImageSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
