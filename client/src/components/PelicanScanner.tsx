@@ -43,8 +43,8 @@ async function getWorker(): Promise<TWorker> {
 
       try {
         await w.setParameters?.({
-          tessedit_char_whitelist: "0123456789Barcodes:SKUabcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ -/.",
-          tessedit_pageseg_mode: "6" as unknown as number,
+          tessedit_char_whitelist: "0123456789",
+          tessedit_pageseg_mode: "7" as unknown as number,
           classify_bln_numeric_mode: "1" as unknown as number,
         });
       } catch {}
@@ -342,7 +342,7 @@ export default function PelicanScanner({ onDetected }: Props) {
     }
   };
 
-  // Crop centered scan zone (optimal 800px width for fast Tesseract execution)
+  // Crop centered scan zone — 640px is sweet spot for 14-digit OCR: sharp enough, ~40% faster than 800
   const captureCrop = useCallback((): HTMLCanvasElement | null => {
     const v = videoRef.current;
     if (!v || v.readyState < 2 || v.videoWidth === 0) return null;
@@ -353,7 +353,7 @@ export default function PelicanScanner({ onDetected }: Props) {
     const sx = (vw - sw) / 2;
     const sy = (vh - sh) / 2;
 
-    const targetW = 800;
+    const targetW = 640;
     const targetH = Math.round((targetW * sh) / sw);
 
     const off = document.createElement("canvas");
@@ -366,13 +366,13 @@ export default function PelicanScanner({ onDetected }: Props) {
     return off;
   }, []);
 
-  // Full frame capture (fallback for manual capture if target was off-center)
+  // Full frame capture (fallback for manual capture if target was off-center) — cap for speed
   const captureFull = useCallback((): HTMLCanvasElement | null => {
     const v = videoRef.current;
     if (!v || v.readyState < 2 || v.videoWidth === 0) return null;
     const vw = v.videoWidth;
     const vh = v.videoHeight;
-    const targetW = 960;
+    const targetW = 720;
     const targetH = Math.round((targetW * vh) / vw);
 
     const off = document.createElement("canvas");
@@ -415,7 +415,7 @@ export default function PelicanScanner({ onDetected }: Props) {
       } catch {} finally {
         busyRef.current = false;
       }
-    }, 280);
+    }, 200);
   }, [captureCrop, handleMatchFound]);
 
   // Manual Capture: staged for speed —
