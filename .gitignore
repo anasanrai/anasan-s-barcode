@@ -104,6 +104,11 @@ jspm_packages/
 tmp/
 temp/
 
+# Local video recordings (scanner analysis, never commit)
+*.mov
+*.mp4
+*.webm
+
 # Database
 *.db
 *.sqlite
