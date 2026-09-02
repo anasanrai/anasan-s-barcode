@@ -1,10 +1,42 @@
 import { Flashlight, ImageUp, Camera, Scan, RotateCcw, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Capacitor } from "@capacitor/core";
 import { detectBarcodeFormat, extractPelicanNumber, validateBarcode } from "@/lib/pelican";
 import { useLang } from "@/lib/i18n";
 import BarcodePreview from "./BarcodePreview";
 
 type Props = { onDetected: (value: string) => void };
+
+function isNativeApp(): boolean {
+  return Capacitor.isNativePlatform();
+}
+
+async function startNativeBarcodeScan(): Promise<string | null> {
+  if (!isNativeApp()) return null;
+  try {
+    const {
+      CapacitorBarcodeScanner,
+      CapacitorBarcodeScannerTypeHint,
+      CapacitorBarcodeScannerCameraDirection,
+      CapacitorBarcodeScannerAndroidScanningLibrary,
+    } = await import("@capacitor/barcode-scanner");
+    const result = await CapacitorBarcodeScanner.scanBarcode({
+      hint: CapacitorBarcodeScannerTypeHint.ALL,
+      cameraDirection: CapacitorBarcodeScannerCameraDirection.BACK,
+      scanText: "Scan barcode",
+      scanInstructions: "Point the camera at a barcode",
+      cancelButtonAccessibilityLabel: "Cancel barcode scan",
+      android: {
+        scanningLibrary: CapacitorBarcodeScannerAndroidScanningLibrary.ZXING,
+      },
+    });
+    const raw = result.ScanResult?.trim() ?? "";
+    const candidate = extractPelicanNumber(raw, true);
+    return candidate && validateBarcode(candidate).valid ? candidate : null;
+  } catch {
+    return null;
+  }
+}
 
 // ── OCR Worker (singleton, resilient loader) ──────────────────────────────────
 
@@ -296,6 +328,7 @@ export default function PelicanScanner({ onDetected }: Props) {
   const timerRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const torchFailCountRef = useRef(0);
+  const nativeScanningRef = useRef(false);
 
   const [torchOn, setTorchOn] = useState(false);
   const [torchSupported, setTorchSupported] = useState(false);
@@ -306,6 +339,7 @@ export default function PelicanScanner({ onDetected }: Props) {
   const [capturing, setCapturing] = useState(false);
   const [captureError, setCaptureError] = useState(false);
   const [scannedBarcode, setScannedBarcode] = useState<string | null>(null);
+  const [nativeScanning, setNativeScanning] = useState(false);
 
   const onDetectedRef = useRef(onDetected);
   onDetectedRef.current = onDetected;
@@ -370,6 +404,25 @@ export default function PelicanScanner({ onDetected }: Props) {
     onDetectedRef.current(cand);
     setScannedBarcode(cand);
   }, [stopCamera]);
+
+  const handleNativeScan = useCallback(async () => {
+    if (nativeScanningRef.current || !isNativeApp()) return;
+    nativeScanningRef.current = true;
+    setNativeScanning(true);
+    setStarting(true);
+    setCaptureError(false);
+    const cand = await startNativeBarcodeScan();
+    nativeScanningRef.current = false;
+    setNativeScanning(false);
+    setStarting(false);
+    if (cand) {
+      onDetectedRef.current(cand);
+      setScannedBarcode(cand);
+    } else {
+      setCaptureError(true);
+      window.setTimeout(() => setCaptureError(false), 2200);
+    }
+  }, []);
 
   const startAutoLoop = useCallback(() => {
     if (timerRef.current) window.clearInterval(timerRef.current);
@@ -437,8 +490,9 @@ export default function PelicanScanner({ onDetected }: Props) {
     }
   }, [capturing, captureCrop, handleMatchFound, scannedBarcode, startAutoLoop]);
 
-  // Eagerly warm decoders on mount for instant capture — keep desktop/mobile snappy
+  // Warm the web fallback only. Native apps use the device decoder directly.
   useEffect(() => {
+    if (isNativeApp()) return;
     void getWorker().catch(() => {});
     void getZxing().catch(() => {});
     void getDetector().catch(() => {});
@@ -502,16 +556,22 @@ export default function PelicanScanner({ onDetected }: Props) {
   const handleScanNext = () => {
     setScannedBarcode(null);
     setCaptureError(false);
-    void startCamera();
+    if (isNativeApp()) void handleNativeScan();
+    else void startCamera();
   };
 
   useEffect(() => {
+    if (isNativeApp()) {
+      void handleNativeScan();
+      return;
+    }
     void startCamera();
     return () => stopCamera();
-  }, [startCamera, stopCamera]);
+  }, [handleNativeScan, startCamera, stopCamera]);
 
   // Keep OCR worker alive across Scan/Generate tab switches — reload was 2–5s per visit
   useEffect(() => {
+    if (isNativeApp()) return;
     void getWorker().catch(() => {});
     void getDetector().catch(() => {});
   }, []);
@@ -616,12 +676,12 @@ export default function PelicanScanner({ onDetected }: Props) {
             <>
               <button
                 type="button"
-                className={`pelican-manual ${capturing ? "pelican-manual--active" : ""}`}
-                onClick={() => void handleManualCapture()}
-                disabled={capturing}
+                className={`pelican-manual ${(capturing || nativeScanning) ? "pelican-manual--active" : ""}`}
+                onClick={() => void (isNativeApp() ? handleNativeScan() : handleManualCapture())}
+                disabled={capturing || nativeScanning}
                 aria-label="Capture now"
               >
-                <Scan size={18} /> {capturing ? t.capturing : t.capture}
+                <Scan size={18} /> {(capturing || nativeScanning) ? t.capturing : t.capture}
               </button>
               {captureError && (
                 <div className="pelican-capture-error" role="status" aria-live="polite">

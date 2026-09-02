@@ -11,6 +11,9 @@ importers:
 
   .:
     dependencies:
+      '@capacitor/barcode-scanner':
+        specifier: ^3.1.2
+        version: 3.1.2(@capacitor/core@8.5.0)
       '@neondatabase/serverless':
         specifier: ^1.1.0
         version: 1.1.0
@@ -210,6 +213,11 @@ packages:
     resolution: {integrity: sha512-Rb3prJeQiTp0pQhSSOReJuG9VgibOGMG4ECs+UhMwr6TCCHZ3NCZO811bDA0HxD0xrT/gCrJAsY5yfEATu84JQ==}
     peerDependencies:
       '@capacitor/core': ^8.5.0
+
+  '@capacitor/barcode-scanner@3.1.2':
+    resolution: {integrity: sha512-8OdOFfHgxo22TQAGghk+BuSu66RROWPxkHChQpbIttzdomvgKkwJUi8tfNUYqlG2RT9HEy40yyAzxFhxN22lLg==}
+    peerDependencies:
+      '@capacitor/core': '>=8.0.0'
 
   '@capacitor/cli@8.5.0':
     resolution: {integrity: sha512-rLdzMUM5QV4WITcqoWv04p32i14BXgUH2diqEH6MWQlWaJfiyNrvOyt/+d5vHAfOxOm1klBu637VDEobctlwBA==}
@@ -1965,6 +1973,9 @@ packages:
     resolution: {integrity: sha512-T2UbfbBEF32wiepXIsMlTW9+dDYC6wMh/t/vYA4tuOMKqWz/n3vr1NFSxQiyP+zk2mXsoMA/i/7qV6LKut1t1A==}
     engines: {node: '>= 0.4'}
 
+  html5-qrcode@2.3.8:
+    resolution: {integrity: sha512-jsr4vafJhwoLVEDW3n1KvPnCCXWaQfRng0/EEYk1vNcQGcG/htAdhJX0be8YyqMoSz7+hZvOZSTAepsabiuhiQ==}
+
   http-errors@2.0.1:
     resolution: {integrity: sha512-4FbRdAX+bSdmo4AUFuS0WNiPz8NgFt+r8ThgNWmlrjQjt1Q7ZR9+zTlce2859x4KSXrwIsaeTqDoKQmtP8pLmQ==}
     engines: {node: '>= 0.8'}
@@ -3031,6 +3042,11 @@ snapshots:
   '@capacitor/android@8.5.0(@capacitor/core@8.5.0)':
     dependencies:
       '@capacitor/core': 8.5.0
+
+  '@capacitor/barcode-scanner@3.1.2(@capacitor/core@8.5.0)':
+    dependencies:
+      '@capacitor/core': 8.5.0
+      html5-qrcode: 2.3.8
 
   '@capacitor/cli@8.5.0':
     dependencies:
@@ -4517,6 +4533,8 @@ snapshots:
   hasown@2.0.4:
     dependencies:
       function-bind: 1.1.2
+
+  html5-qrcode@2.3.8: {}
 
   http-errors@2.0.1:
     dependencies:
