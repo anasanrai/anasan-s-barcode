@@ -493,31 +493,45 @@ html[dir="rtl"] .pelican-tab { font-family: "Noto Sans Arabic", var(--font-displ
 /* ——— Install (PWA) — legacy, now inside header ——— */
 .install-control { display: none; }
 
-/* ——— Tab Switcher ——— */
+/* ——— Mobile Shell & Tab Switcher ——— */
+.pelican-mobile-shell {
+  height: 100vh; height: 100dvh;
+  min-height: -webkit-fill-available;
+  position: relative; overflow: hidden;
+  display: flex; flex-direction: column;
+  background: var(--color-bg);
+}
+
 .pelican-tabs {
-  position: absolute; bottom: calc(12px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); z-index: 4;
-  display: inline-flex; gap: 2px;
-  background: rgba(12, 12, 18, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  position: fixed; bottom: calc(14px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); z-index: 50;
+  display: inline-flex; align-items: center; gap: 4px;
+  background: rgba(18, 19, 25, 0.82);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-pill);
-  padding: 3px;
-  backdrop-filter: blur(16px);
+  padding: 4px;
+  backdrop-filter: blur(20px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+  transition: all 0.2s var(--ease-out);
 }
 .pelican-tabs--desktop {
   position: fixed; bottom: 20px;
 }
 .pelican-tab {
-  padding: 10px 26px;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 9px 20px;
   border-radius: var(--radius-pill);
-  font-size: 14px; font-weight: 600;
-  color: rgba(255, 255, 255, 0.5);
+  font-size: 13px; font-weight: 600;
+  color: var(--color-text-muted);
   transition: all 0.2s var(--ease-out);
+  white-space: nowrap;
 }
 .pelican-tab--active {
   background: var(--color-accent);
-  color: var(--color-bg);
+  color: #FFFFFF;
+  box-shadow: 0 4px 14px var(--color-accent-glow);
 }
-.pelican-tab:not(.pelican-tab--active):hover { color: rgba(255, 255, 255, 0.85); }
+.pelican-tab:not(.pelican-tab--active):hover { color: var(--color-text); }
+.pelican-tab:active { transform: scale(0.95); }
 
 /* ——— Generator Page ——— */
 .pelican-app--generator {

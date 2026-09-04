@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Barcode, Camera, Search } from "lucide-react";
 import BarcodeGenerator from "@/components/BarcodeGenerator";
 import PelicanScanner from "@/components/PelicanScanner";
 import Header from "@/components/Header";
@@ -142,21 +143,24 @@ export default function Home() {
         className={`pelican-tab ${screen === "scan" ? "pelican-tab--active" : ""}`}
         onClick={handleGoToScan}
       >
-        Scan
+        <Camera size={15} />
+        <span>Scan</span>
       </button>
       <button
         type="button"
         className={`pelican-tab ${screen === "generate" ? "pelican-tab--active" : ""}`}
         onClick={handleGoToGenerate}
       >
-        Generate
+        <Barcode size={15} />
+        <span>Generate</span>
       </button>
       <button
         type="button"
         className={`pelican-tab pelican-tab--lookup ${screen === "lookup" ? "pelican-tab--active" : ""}`}
         onClick={handleGoToLookup}
       >
-        Lookup
+        <Search size={15} />
+        <span>Lookup</span>
       </button>
     </div>
   );
@@ -164,54 +168,33 @@ export default function Home() {
   // Mobile layout (< 1100px)
   if (isMobile) {
     return (
-      <>
-        {screen === "scan" && (
-          <main className="pelican-app">
-            <Header
-              onOpenLeaderboard={() => setIsLeaderboardOpen(true)}
-              onGoToAdmin={handleOpenAdmin}
-              onOpenAbout={handleOpenAbout}
-            />
-            <PelicanScanner onDetected={handleDetected} />
-            {tabBar}
-          </main>
-        )}
-
-        {screen === "generate" && (
-          <main className="pelican-app pelican-app--generator">
-            <Header
-              onOpenLeaderboard={() => setIsLeaderboardOpen(true)}
-              onGoToAdmin={handleOpenAdmin}
-              onOpenAbout={handleOpenAbout}
-            />
+      <div className="pelican-mobile-shell">
+        <Header
+          onOpenLeaderboard={() => setIsLeaderboardOpen(true)}
+          onGoToAdmin={handleOpenAdmin}
+          onOpenAbout={handleOpenAbout}
+        />
+        <main className={`pelican-app pelican-app--${screen}`}>
+          {screen === "scan" && <PelicanScanner onDetected={handleDetected} />}
+          {screen === "generate" && (
             <BarcodeGenerator
               initialValue={detectedNumber}
               pushedValue={pushedBarcode ? `${pushedBarcode.value}__v${pushedBarcode.version}` : undefined}
             />
-            {tabBar}
-          </main>
-        )}
-
-        {screen === "lookup" && (
-          <main className="pelican-app pelican-app--lookup">
-            <Header
-              onOpenLeaderboard={() => setIsLeaderboardOpen(true)}
-              onGoToAdmin={handleOpenAdmin}
-              onOpenAbout={handleOpenAbout}
-            />
-            <LookupPanel onSelect={handleProductSelect} />
-            {tabBar}
-          </main>
-        )}
+          )}
+          {screen === "lookup" && <LookupPanel onSelect={handleProductSelect} />}
+        </main>
+        {tabBar}
 
         <LeaderboardModal
           isOpen={isLeaderboardOpen}
           onClose={() => setIsLeaderboardOpen(false)}
           onOpenStars={handleOpenStars}
         />
-      </>
+      </div>
     );
   }
+
 
   // Desktop layout (>= 1100px): centered, generator-first stage
   return (
@@ -247,21 +230,24 @@ export default function Home() {
           className={`pelican-tab ${screen === "generate" ? "pelican-tab--active" : ""}`}
           onClick={handleGoToGenerate}
         >
-          Generate
+          <Barcode size={15} />
+          <span>Generate</span>
         </button>
         <button
           type="button"
           className={`pelican-tab ${screen === "scan" ? "pelican-tab--active" : ""}`}
           onClick={handleGoToScan}
         >
-          Scan
+          <Camera size={15} />
+          <span>Scan</span>
         </button>
         <button
           type="button"
           className={`pelican-tab pelican-tab--lookup ${screen === "lookup" ? "pelican-tab--active" : ""}`}
           onClick={handleGoToLookup}
         >
-          Lookup
+          <Search size={15} />
+          <span>Lookup</span>
         </button>
       </div>
 
