@@ -5,6 +5,10 @@
 # Build outputs
 dist/
 build/
+.gradle/
+**/android/.gradle/
+**/capacitor-android/.gradle/
+**/local.properties
 capacitor-android/app/build/
 capacitor-ios/DerivedData/
 client/public/tesseract/
