@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
-const STORAGE_KEY = "hungertag-number-history";
+const STORAGE_KEY = "barcode-number-history";
 const MAX_HISTORY = 50;
 
 function loadHistory(): string[] {

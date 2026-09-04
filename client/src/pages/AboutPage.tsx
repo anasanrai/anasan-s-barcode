@@ -6,10 +6,10 @@ interface Props {
 
 const PROJECTS = [
   {
-    name: "HungerStation Barcode",
-    desc: "Offline-first PWA for instant barcode scanning & generation, with a live multi-store ranking system.",
+    name: "Anasan Barcode",
+    desc: "Fast camera-to-barcode utility. Point at numbers on another screen, instantly generate standard scannable barcodes with 100% on-device vision.",
     url: "https://github.com/anasanrai/anasan-s-barcode",
-    tag: "TypeScript",
+    tag: "TypeScript / Computer Vision",
   },
   {
     name: "BridgeFlow Agency",

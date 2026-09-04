@@ -1,9 +1,9 @@
-# Anasan Barcode — Production Mobile Scanner & Utility Platform
+# Anasan Barcode — Fast Camera-to-Barcode Utility
 
-A high-performance, two-surface barcode generation and computer-vision numeric recognition platform.
+A high-performance, privacy-first camera-to-barcode scanner and generator.
 
-- **Mobile App**: Camera-first, real-time, 100% offline numeric scanner engineered for walking warehouse/store operators scanning electronic device screens (glare, motion blur, LCD pixel moiré, low light).
-- **Web App**: Manual barcode generator, product catalog lookup (4,700+ items), weekly leaderboards, manager & admin dashboards, and desktop utility workflows.
+- **Mobile App**: Camera-first, real-time, 100% offline numeric scanner engineered for scanning electronic device screens (glare, motion blur, LCD pixel moiré, low light).
+- **Web App**: Fast manual barcode and QR code generator, live camera scanner, and responsive utility workbench.
 
 ---
 
@@ -20,6 +20,7 @@ A high-performance, two-surface barcode generation and computer-vision numeric r
 - **🔍 Sharpness-Aware Frame Selection**: Discrete Laplacian variance estimation gates frames before OCR to prevent CPU/battery drain on out-of-focus motion frames.
 - **🔄 Temporal Consensus Engine**: Rolling sliding-window candidate buffer with Levenshtein distance clustering and GTIN check-digit weighting. Recovers seamlessly from single-frame motion blur or walking jitter.
 - **📊 Real-Time Diagnostic Telemetry**: Toggleable on-screen HUD displaying live FPS, frame processing time, OCR latency, sharpness score, luma, and active preprocessing pass.
+- **🏷️ Multi-Format Generator**: Generates Code 128, EAN-13, EAN-8, UPC-A, Code 39, ITF-14, and QR codes instantly with download and copy options.
 
 ---
 
@@ -35,35 +36,20 @@ client/src/
 │   │   ├── numericOcr.ts           # Tesseract WASM (whitelist: 0-9, PSM 7) & BarcodeDetector
 │   │   ├── temporalConsensus.ts    # Multi-frame consensus, Levenshtein clustering & checksum lock
 │   │   ├── barcodeEngine.ts        # Synchronous in-memory ITF-14, Code128, EAN, UPC, QR encoder
-│   │   └── *.test.ts               # Complete unit test suite
+│   │   └── *.test.ts               # Unit test suite
 │   ├── pelican.ts                  # Domain GTIN checksum & normalization rules
-│   ├── productDb.ts                # Offline searchable product catalog
+│   ├── useNumberHistory.ts         # On-device recent scan & generation history
 │   └── i18n.tsx                    # English & Arabic bilingual support
 ├── components/
 │   ├── PelicanScanner.tsx          # Real-time camera viewfinder HUD & barcode presentation
-│   ├── BarcodeGenerator.tsx        # Manual generator with preview and export
+│   ├── BarcodeGenerator.tsx        # Generator with preview, QR mode, and export
 │   ├── BarcodePreview.tsx          # High-contrast scannable barcode renderer
-│   ├── LookupPanel.tsx             # 4,700+ item product lookup interface
-│   └── LeaderboardModal.tsx        # Store & performer ranking modal
+│   ├── QRCodePreview.tsx           # Vector QR code renderer
+│   └── Header.tsx                  # App bar with theme, language, and install options
 └── pages/
     ├── Home.tsx                    # Two-surface orchestrator (Mobile Camera vs Web Workbench)
-    ├── AdminPage.tsx               # Store manager & owner dashboard
-    └── StarGalleryPage.tsx         # Performance recognition gallery
+    └── AboutPage.tsx               # About & developer information
 ```
-
----
-
-## ⏱️ Latency Budget & Performance
-
-| Pipeline Stage | Target | Typical Measured |
-| :--- | :---: | :---: |
-| **ROI Capture & Resampling** | < 20 ms | 4–8 ms |
-| **Frame Quality & Sharpness Filter** | < 5 ms | 1–2 ms |
-| **Adaptive Screen Preprocessing** | < 25 ms | 3–8 ms |
-| **Numeric OCR (WASM SIMD LSTM)** | < 150 ms | 60–120 ms |
-| **Temporal Consensus & Checksum** | < 2 ms | < 1 ms |
-| **Instant Barcode Generation** | < 5 ms | < 2 ms |
-| **Total End-to-End Latency** | **< 1000 ms** | **120–400 ms** |
 
 ---
 
@@ -102,7 +88,7 @@ npm run build
 
 ## 📱 Mobile Build Setup (Android & iOS)
 
-The mobile client is built on Capacitor 8.5 with native camera permissions and hardware acceleration.
+The mobile client is built on Capacitor with native camera permissions and hardware acceleration.
 
 ### Sync Web Assets to Native Platforms
 ```bash
@@ -122,13 +108,3 @@ pnpm run cap:open:android
 # Sync and open in Xcode:
 pnpm run cap:open:ios
 ```
-
----
-
-## 🌐 Web Deployment (Vercel)
-
-The web client and serverless API endpoints deploy directly to Vercel:
-```bash
-vercel --prod
-```
-The ServiceWorker (`sw.js`) automatically precaches the application shell, WebAssembly SIMD binaries, and Tesseract trained data for instant offline loading.

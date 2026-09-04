@@ -107,18 +107,38 @@ export function applyStandardContrastStretch(d: Uint8ClampedArray, totalPixels: 
     d[i] = d[i + 1] = d[i + 2] = v;
   }
 }
+// Module-level reusable typed array buffers to eliminate GC allocations during frame loops
+let cachedGray: Uint8Array | null = null;
+let cachedIntegral: Uint32Array | null = null;
+
+function getGrayBuffer(size: number): Uint8Array {
+  if (!cachedGray || cachedGray.length < size) {
+    cachedGray = new Uint8Array(size);
+  }
+  return cachedGray;
+}
+
+function getIntegralBuffer(size: number): Uint32Array {
+  if (!cachedIntegral || cachedIntegral.length < size) {
+    cachedIntegral = new Uint32Array(size);
+  }
+  return cachedIntegral;
+}
 
 /**
  * Pass 2: Glare Mitigation via local background gradient division.
  */
 export function applyGlareMitigation(d: Uint8ClampedArray, width: number, height: number): void {
-  const gray = new Uint8Array(width * height);
+  const totalPixels = width * height;
+  const gray = getGrayBuffer(totalPixels);
   for (let i = 0, j = 0; i < d.length; i += 4, j++) {
     gray[j] = (d[i] * 77 + d[i + 1] * 150 + d[i + 2] * 29) >> 8;
   }
 
-  const integral = new Uint32Array((width + 1) * (height + 1));
   const intW = width + 1;
+  const intTotal = intW * (height + 1);
+  const integral = getIntegralBuffer(intTotal);
+  integral.fill(0, 0, intTotal);
 
   for (let y = 0; y < height; y++) {
     let rowSum = 0;
@@ -172,13 +192,16 @@ export function applyAdaptiveThreshold(
   height: number,
   sensitivity = 0.15,
 ): void {
-  const gray = new Uint8Array(width * height);
+  const totalPixels = width * height;
+  const gray = getGrayBuffer(totalPixels);
   for (let i = 0, j = 0; i < d.length; i += 4, j++) {
     gray[j] = (d[i] * 77 + d[i + 1] * 150 + d[i + 2] * 29) >> 8;
   }
 
-  const integral = new Uint32Array((width + 1) * (height + 1));
   const intW = width + 1;
+  const intTotal = intW * (height + 1);
+  const integral = getIntegralBuffer(intTotal);
+  integral.fill(0, 0, intTotal);
 
   for (let y = 0; y < height; y++) {
     let rowSum = 0;

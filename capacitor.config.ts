@@ -2,7 +2,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
 
 const config: CapacitorConfig = {
   appId: "com.anasan.barcode",
-  appName: "HungerStation Barcode",
+  appName: "Anasan Barcode",
   webDir: "dist/public",
   bundledWebRuntime: false,
   android: {

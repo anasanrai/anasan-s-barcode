@@ -1,6 +1,12 @@
 import { detectBarcodeFormat, extractPelicanNumber, isValidGtin, validateBarcode } from "@/lib/pelican";
+import {
+  extractNumericCandidate,
+  isValidGtinChecksum,
+  validateBarcodeString,
+  type ScanRuleConfig,
+} from "./barcodeValidation";
 import { preprocessFrame, type PreprocessPass } from "./preprocessing";
-import type { CandidateResult, ScanRuleConfig } from "./types";
+import type { CandidateResult } from "./types";
 
 // ── Tesseract WASM Worker Singleton ──────────────────────────────────────────
 
@@ -19,7 +25,7 @@ let tesseractWorkerPromise: Promise<TesseractWorker> | null = null;
 let tesseractReady = false;
 
 export async function getTesseractWorker(): Promise<TesseractWorker> {
-  if (tesseractWorkerPromise && tesseractReady) return tesseractWorkerPromise;
+  if (tesseractWorkerPromise) return tesseractWorkerPromise;
 
   tesseractWorkerPromise = (async () => {
     try {
@@ -125,14 +131,16 @@ export async function recognizeNumericTarget(
       const barcodes = await detector.detect(canvas);
       for (const b of barcodes) {
         const raw = b.rawValue?.trim() ?? "";
-        const cand = extractPelicanNumber(raw, options.strict ?? true);
-        if (cand && validateBarcode(cand).valid) {
+        const cand =
+          extractNumericCandidate(raw, options.rules) ??
+          extractPelicanNumber(raw, options.strict ?? true);
+        if (cand && (validateBarcodeString(cand, options.rules).valid || validateBarcode(cand).valid)) {
           return {
             value: cand,
             format: detectBarcodeFormat(cand),
             confidence: 100,
             source: "hardware",
-            isValidChecksum: isValidGtin(cand),
+            isValidChecksum: isValidGtinChecksum(cand) || isValidGtin(cand),
             timestamp: startTime,
           };
         }
@@ -150,11 +158,13 @@ export async function recognizeNumericTarget(
     const rawText = data.text ?? "";
     const confidence = Math.round(data.confidence ?? 80);
 
-    const cand = extractPelicanNumber(rawText, options.strict ?? false);
+    const cand =
+      extractNumericCandidate(rawText, options.rules) ??
+      extractPelicanNumber(rawText, options.strict ?? false);
     if (!cand) return null;
 
-    const validation = validateBarcode(cand);
-    if (!validation.valid) return null;
+    const validation = validateBarcodeString(cand, options.rules);
+    if (!validation.valid && !validateBarcode(cand).valid) return null;
 
     return {
       value: cand,
@@ -162,7 +172,7 @@ export async function recognizeNumericTarget(
       confidence,
       source: "ocr",
       rawText,
-      isValidChecksum: isValidGtin(cand),
+      isValidChecksum: isValidGtinChecksum(cand) || isValidGtin(cand),
       timestamp: startTime,
     };
   } catch {

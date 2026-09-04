@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "HungerStation Barcode",
-  "short_name": "HS Barcode",
+  "name": "Anasan Barcode",
+  "short_name": "Anasan Barcode",
   "description": "Scan barcodes, generate Code 128, EAN, UPC, and QR codes instantly. On-device OCR, voice typing, no server upload.",
   "start_url": "/",
   "scope": "/",

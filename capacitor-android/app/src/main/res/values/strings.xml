@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">HungerStation Barcode</string>
-    <string name="title_activity_main">HungerStation Barcode</string>
+    <string name="app_name">Anasan Barcode</string>
+    <string name="title_activity_main">Anasan Barcode</string>
     <string name="package_name">com.anasan.barcode</string>
     <string name="custom_url_scheme">com.anasan.barcode</string>
 </resources>

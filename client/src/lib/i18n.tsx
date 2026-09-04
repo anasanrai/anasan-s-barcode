@@ -4,20 +4,20 @@ export type Lang = "en" | "ar";
 
 const strings = {
   en: {
-    title: "HungerStation Barcode",
-    subtitle: "Scan. Generate. Done.",
+    title: "Anasan Barcode",
+    subtitle: "Fast camera-to-barcode utility",
     barcode: "Barcode",
     qrCode: "QR Code",
     enterText: "Enter text or digits…",
     enterDigits: "Enter digits…",
     enterTextOrUrl: "Enter text or URL…",
     scan: "Scan",
-    generate: "Generate & Lookup",
-    storeLookup: "Product Lookup",
+    generate: "Generate",
+    storeLookup: "Lookup",
     scanNext: "Scan Next",
     scanResult: "Scanned Barcode",
     install: "Install",
-    installTitle: "Install HungerStation Barcode",
+    installTitle: "Install Anasan Barcode",
     addHomeScreen: "Add to Home Screen",
     iosGuide: "In Safari, tap <b>Share</b>, then <b>Add to Home Screen</b>, then <b>Add</b>.",
     browserGuide: "Open your browser menu and choose <b>Install app</b> or <b>Add to Home Screen</b>.",
@@ -136,20 +136,20 @@ const strings = {
     ar: "AR",
   },
   ar: {
-    title: "باركود هنغرستيشن",
-    subtitle: "امسح. أنشئ. تم.",
+    title: "أناسان باركود",
+    subtitle: "أداة سريعة لتحويل الأرقام من الكاميرا إلى باركود",
     barcode: "الباركود",
     qrCode: "كود QR",
     enterText: "أدخل النص أو الأرقام…",
     enterDigits: "أدخل الأرقام…",
     enterTextOrUrl: "أدخل النص أو الرابط…",
     scan: "مسح",
-    generate: "إنشاء وبحث",
-    storeLookup: "بحث المنتجات",
+    generate: "إنشاء",
+    storeLookup: "بحث",
     scanNext: "مسح التالي",
     scanResult: "الباركود الممسوح",
     install: "تثبيت",
-    installTitle: "تثبيت باركود هنغرستيشن",
+    installTitle: "تثبيت أناسان باركود",
     addHomeScreen: "إضافة إلى الشاشة الرئيسية",
     iosGuide: "في Safari، اضغط <b>مشاركة</b>، ثم <b>إضافة إلى الشاشة الرئيسية</b>، ثم <b>إضافة</b>.",
     browserGuide: "افتح قائمة المتصفح واختر <b>تثبيت التطبيق</b> أو <b>إضافة إلى الشاشة الرئيسية</b>.",
@@ -263,7 +263,7 @@ const LangContext = createContext<{ lang: Lang; t: Strings; dir: "ltr" | "rtl" }
   dir: "ltr",
 });
 
-const STORAGE_KEY = "hungertag-lang";
+const STORAGE_KEY = "barcode-lang";
 
 function detectLang(): Lang {
   try {

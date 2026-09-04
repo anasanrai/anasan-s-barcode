@@ -2,6 +2,8 @@ import { Activity, Copy, Check, Flashlight, ImageUp, Camera, RefreshCw, Share2, 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { detectBarcodeFormat, extractPelicanNumber, validateBarcode } from "@/lib/pelican";
+import { validateBarcodeString } from "@/lib/scanner/barcodeValidation";
+import { playSuccessTone } from "@/lib/scanner/audioFeedback";
 import { useLang } from "@/lib/i18n";
 import BarcodePreview from "./BarcodePreview";
 import { evaluateFrameQuality } from "@/lib/scanner/frameQuality";
@@ -56,9 +58,24 @@ export default function PelicanScanner({ onDetected, showDebugByDefault = false 
     activePass: "standard",
   });
 
+  const activeLoopRef = useRef(false);
+  const animIdRef = useRef<number | null>(null);
+  const rvfcIdRef = useRef<number | null>(null);
+  const lastProcessTimeRef = useRef(0);
+
   const stopCamera = useCallback(() => {
+    activeLoopRef.current = false;
     if (timerRef.current) window.clearInterval(timerRef.current);
     timerRef.current = null;
+    if (animIdRef.current !== null) {
+      window.cancelAnimationFrame(animIdRef.current);
+      animIdRef.current = null;
+    }
+    const v = videoRef.current;
+    if (v && "cancelVideoFrameCallback" in v && rvfcIdRef.current !== null) {
+      (v as any).cancelVideoFrameCallback(rvfcIdRef.current);
+      rvfcIdRef.current = null;
+    }
     streamRef.current?.getTracks().forEach((trk) => trk.stop());
     streamRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
@@ -125,7 +142,8 @@ export default function PelicanScanner({ onDetected, showDebugByDefault = false 
       setScannedBarcode(cand);
       onDetectedRef.current(cand);
 
-      // Trigger subtle haptic buzz if supported by device
+      // Trigger instant audio chime & haptic feedback upon confirmation
+      playSuccessTone();
       try {
         if (typeof navigator !== "undefined" && "vibrate" in navigator) {
           navigator.vibrate([40, 30, 40]);
@@ -136,88 +154,120 @@ export default function PelicanScanner({ onDetected, showDebugByDefault = false 
   );
 
   /**
-   * Main adaptive scanning engine loop
+   * Main continuous real-time scanning engine loop (banking-scanner standard)
    */
   const startScanningLoop = useCallback(() => {
+    // Clear previous loop if any
+    activeLoopRef.current = false;
     if (timerRef.current) window.clearInterval(timerRef.current);
+    timerRef.current = null;
+    if (animIdRef.current !== null) {
+      window.cancelAnimationFrame(animIdRef.current);
+      animIdRef.current = null;
+    }
 
     consensusEngineRef.current.reset();
     setStatus("SEARCHING");
+    activeLoopRef.current = true;
+    lastProcessTimeRef.current = 0;
 
-    timerRef.current = window.setInterval(async () => {
-      if (busyRef.current) return;
+    const MIN_INTERVAL_MS = 40; // ~25 fps scan throttle for ultra-responsiveness
 
-      // Track FPS
-      frameCountRef.current += 1;
-      const now = Date.now();
-      if (now - lastFpsTimeRef.current >= 1000) {
-        currentFpsRef.current = Math.round((frameCountRef.current * 1000) / (now - lastFpsTimeRef.current));
-        frameCountRef.current = 0;
-        lastFpsTimeRef.current = now;
-      }
+    const processFrame = async () => {
+      if (!activeLoopRef.current) return;
 
-      const frameData = captureRoiCanvas();
-      if (!frameData) return;
+      const now = performance.now();
+      if (!busyRef.current && now - lastProcessTimeRef.current >= MIN_INTERVAL_MS) {
+        lastProcessTimeRef.current = now;
 
-      const { canvas, quality } = frameData;
-      setGuidance(quality.guidance ?? null);
-
-      // If frame is severely out of focus / dark, skip heavy OCR computation
-      if (!quality.isAcceptable && quality.guidance === "LOW_LIGHT" && quality.brightness < 18) {
-        setTelemetry((prev) => ({
-          ...prev,
-          fps: currentFpsRef.current,
-          lastSharpness: quality.sharpness,
-          lastBrightness: quality.brightness,
-          status: "SEARCHING",
-        }));
-        return;
-      }
-
-      busyRef.current = true;
-      const t0 = performance.now();
-
-      try {
-        // Select adaptive preprocessing pass based on optical conditions
-        let pass: PreprocessPass = "standard";
-        if (quality.glareRatio > 0.25) {
-          pass = "glare_mitigation";
-        } else if (quality.contrast < 22 && quality.brightness < 120) {
-          pass = "adaptive_binarize";
-        } else if (quality.brightness < 80 && quality.contrast > 35) {
-          pass = "inverted";
+        // Track FPS
+        frameCountRef.current += 1;
+        const nowMs = Date.now();
+        if (nowMs - lastFpsTimeRef.current >= 1000) {
+          currentFpsRef.current = Math.round((frameCountRef.current * 1000) / (nowMs - lastFpsTimeRef.current));
+          frameCountRef.current = 0;
+          lastFpsTimeRef.current = nowMs;
         }
 
-        const candidate = await recognizeNumericTarget(canvas, { pass });
-        const ocrTime = Math.round(performance.now() - t0);
+        const frameData = captureRoiCanvas();
+        if (frameData) {
+          const { canvas, quality } = frameData;
+          setGuidance(quality.guidance ?? null);
 
-        if (candidate) {
-          setStatus("CANDIDATE_DETECTED");
-          setCandidateLive(candidate.value);
+          // Fast pre-OCR sharpness & exposure gating (<1ms)
+          if (!quality.isAcceptable && quality.guidance === "LOW_LIGHT" && quality.brightness < 18) {
+            setTelemetry((prev) => ({
+              ...prev,
+              fps: currentFpsRef.current,
+              lastSharpness: quality.sharpness,
+              lastBrightness: quality.brightness,
+              status: "SEARCHING",
+            }));
+          } else {
+            busyRef.current = true;
+            const t0 = performance.now();
+
+            try {
+              // Select adaptive optical pass
+              let pass: PreprocessPass = "standard";
+              if (quality.glareRatio > 0.25) {
+                pass = "glare_mitigation";
+              } else if (quality.contrast < 22 && quality.brightness < 120) {
+                pass = "adaptive_binarize";
+              } else if (quality.brightness < 80 && quality.contrast > 35) {
+                pass = "inverted";
+              }
+
+              const candidate = await recognizeNumericTarget(canvas, { pass });
+              const ocrTime = Math.round(performance.now() - t0);
+
+              if (candidate) {
+                setStatus("CANDIDATE_DETECTED");
+                setCandidateLive(candidate.value);
+              }
+
+              const locked = consensusEngineRef.current.push(candidate, quality.sharpness);
+              const totalPipelineTime = Math.round(performance.now() - t0);
+
+              setTelemetry({
+                fps: currentFpsRef.current,
+                frameProcessingMs: Math.round(performance.now() - t0),
+                ocrMs: ocrTime,
+                totalPipelineMs: totalPipelineTime,
+                lastSharpness: quality.sharpness,
+                lastBrightness: quality.brightness,
+                status: locked ? "CONFIRMED" : candidate ? "CANDIDATE_DETECTED" : "SEARCHING",
+                detectedCandidate: candidate?.value ?? null,
+                activePass: pass,
+              });
+
+              if (locked && (validateBarcodeString(locked).valid || validateBarcode(locked).valid)) {
+                handleConfirmedMatch(locked);
+                return; // Stop loop once locked
+              }
+            } catch {} finally {
+              busyRef.current = false;
+            }
+          }
         }
-
-        const locked = consensusEngineRef.current.push(candidate, quality.sharpness);
-        const totalPipelineTime = Math.round(performance.now() - t0);
-
-        setTelemetry({
-          fps: currentFpsRef.current,
-          frameProcessingMs: Math.round(t0 - now),
-          ocrMs: ocrTime,
-          totalPipelineMs: totalPipelineTime,
-          lastSharpness: quality.sharpness,
-          lastBrightness: quality.brightness,
-          status: locked ? "CONFIRMED" : candidate ? "CANDIDATE_DETECTED" : "SEARCHING",
-          detectedCandidate: candidate?.value ?? null,
-          activePass: pass,
-        });
-
-        if (locked && validateBarcode(locked).valid) {
-          handleConfirmedMatch(locked);
-        }
-      } catch {} finally {
-        busyRef.current = false;
       }
-    }, 80);
+
+      if (activeLoopRef.current) {
+        scheduleNext();
+      }
+    };
+
+    const scheduleNext = () => {
+      if (!activeLoopRef.current) return;
+      const v = videoRef.current;
+      if (v && "requestVideoFrameCallback" in v) {
+        rvfcIdRef.current = (v as any).requestVideoFrameCallback(processFrame);
+      } else {
+        animIdRef.current = window.requestAnimationFrame(processFrame);
+      }
+    };
+
+    scheduleNext();
   }, [captureRoiCanvas, handleConfirmedMatch]);
 
   const startCamera = useCallback(async () => {

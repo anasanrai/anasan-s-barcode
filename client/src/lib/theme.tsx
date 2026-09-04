@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState } from "rea
 
 export type Theme = "dark" | "light";
 
-const STORAGE_KEY = "hungertag-theme";
+const STORAGE_KEY = "barcode-theme";
 
 function detectTheme(): Theme {
   try {

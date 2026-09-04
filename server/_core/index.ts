@@ -37,14 +37,6 @@ async function startServer() {
   const apiRoutes: Array<[string, string]> = [
     ["/api/ocr", "../../api/ocr"],
     ["/api/health", "../../api/health"],
-    ["/api/auth/login", "../../api/auth/login"],
-    ["/api/leaderboard", "../../api/leaderboard"],
-    ["/api/stores", "../../api/stores"],
-    ["/api/my-store", "../../api/my-store/index"],
-    ["/api/my-store/metrics", "../../api/my-store/metrics"],
-    ["/api/my-store/performer", "../../api/my-store/performer"],
-    ["/api/owner/stores", "../../api/owner/stores"],
-    ["/api/owner/submissions", "../../api/owner/submissions"],
   ];
 
   for (const [route, modulePath] of apiRoutes) {

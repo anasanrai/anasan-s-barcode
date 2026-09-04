@@ -24,7 +24,7 @@
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* ——— Light Theme (HungerStation white) ——— */
+/* ——— Light Theme (Clean white) ——— */
 [data-theme="light"] {
   --color-bg: #FFFFFF;
   --color-surface: #F5F5F5;
@@ -2647,58 +2647,29 @@ html[dir="rtl"] .number-input__actions {
   color: var(--color-text-muted);
   padding: 4px;
 }
-.evd-modal-product-info {
-  background: rgba(0, 0, 0, 0.3);
-  padding: 12px;
-  border-radius: var(--radius-md);
-}
-.evd-modal-product-info__title {
-  font-size: 16px;
-  font-weight: 800;
-  color: #ffffff;
-  margin: 0;
-}
-.evd-modal-product-info__meta {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 12px;
-  color: var(--color-text-muted);
-  margin-top: 4px;
-}
-.evd-modal-digits {
-  margin-top: 8px;
-  font-family: var(--font-mono);
-  font-size: 18px;
-  font-weight: 800;
-  color: #fbbf24;
-  letter-spacing: 0.08em;
-}
-.evd-modal-card__barcode {
-  background: #ffffff;
-  padding: 16px 12px 10px;
-  border-radius: var(--radius-md);
-  display: flex;
-  justify-content: center;
-}
-.evd-modal-card__barcode .barcode-art {
-  width: 100%;
-}
-.evd-modal-card__barcode svg {
-  width: 100% !important;
-  height: clamp(120px, 30vw, 160px) !important;
-}
-.evd-modal-card__actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.pelican-tab--evd {
-  color: #fbbf24 !important;
-}
-.pelican-tab--evd.pelican-tab--active {
-  background: rgba(196, 132, 58, 0.25) !important;
-  color: #fbbf24 !important;
-  box-shadow: 0 0 16px rgba(245, 158, 11, 0.3) !important;
+/* ——— Print Stylesheet ——— */
+@media print {
+  body {
+    background: #FFFFFF !important;
+    color: #000000 !important;
+  }
+  .hs-header,
+  .pelican-tabs,
+  .generator__mode-switch,
+  .generator__input-section,
+  .generator__formats-scroll,
+  .generator__history-section,
+  .smart-match-card__actions,
+  .scanner-result-actions {
+    display: none !important;
+  }
+  .smart-match-card,
+  .scanner-result-card {
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    margin: 0 auto !important;
+    padding: 2rem !important;
+  }
 }
 

@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { Camera, Check, Copy, Download, HelpCircle, Package, QrCode, Search, Sparkles, X } from "lucide-react";
+import { Barcode, Camera, Check, Copy, Download, History, Printer, QrCode, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import BarcodePreview, { FORMAT_CONFIG, type BarcodeFormat } from "./BarcodePreview";
 import QRCodePreview from "./QRCodePreview";
 import NumberInput from "./NumberInput";
 import { useNumberHistory } from "@/lib/useNumberHistory";
-import { lookupBySuffixOrSku, type Product, type SuffixMatchResult } from "@/lib/productDb";
-import { detectBarcodeFormat, PELICAN_LENGTH } from "@/lib/pelican";
+import { detectBarcodeFormat } from "@/lib/pelican";
 import { exportBarcodeDataUrl } from "@/lib/scanner/barcodeEngine";
 import { useLang } from "@/lib/i18n";
 
@@ -22,52 +21,31 @@ export default function BarcodeGenerator({ initialValue = "", onOpenScanner }: P
   const [input, setInput] = useState(initialValue);
   const [format, setFormat] = useState<BarcodeFormat>("CODE128");
   const [mode, setMode] = useState<"barcode" | "qr">("barcode");
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [copied, setCopied] = useState(false);
-  const { addNumber, findMatch } = useNumberHistory();
+  const { history, addNumber, findMatch, clearHistory } = useNumberHistory();
 
   useEffect(() => {
     if (initialValue) {
       setInput(initialValue);
-      setSelectedProduct(null);
     }
   }, [initialValue]);
 
-  // Real-time partial suffix & SKU lookup
-  const matchResult: SuffixMatchResult = useMemo(() => {
-    if (!input.trim() || mode === "qr") {
-      return { status: "empty", products: [], query: input };
-    }
-    return lookupBySuffixOrSku(input);
+  // Clean value for generation
+  const resolvedValue = useMemo(() => {
+    const trimmed = input.trim();
+    if (!trimmed) return "";
+    if (mode === "qr") return trimmed;
+    // Strip common separators for barcode
+    return trimmed.replace(/[\s\-_]/g, "");
   }, [input, mode]);
 
-  // Determine active barcode value to render
-  const resolvedValue = useMemo(() => {
-    if (selectedProduct) return selectedProduct.barcode;
-    if (matchResult.status === "exact_match" && matchResult.resolvedBarcode) {
-      return matchResult.resolvedBarcode;
-    }
-    // If raw input is 8-18 digits, render it directly
-    if (/^\d{8,18}$/.test(input.replace(/[\s\-_]/g, ""))) {
-      return input.replace(/[\s\-_]/g, "");
-    }
-    return "";
-  }, [selectedProduct, matchResult, input]);
-
-  // Automatically update format if GTIN-14 / EAN-13 detected
+  // Automatically adjust format if user enters a standard GTIN/EAN length
   useEffect(() => {
-    if (resolvedValue) {
-      const autoFormat = detectBarcodeFormat(resolvedValue);
-      setFormat(autoFormat);
+    if (resolvedValue && mode === "barcode") {
+      const auto = detectBarcodeFormat(resolvedValue);
+      setFormat(auto);
     }
-  }, [resolvedValue]);
-
-  const handleProductCardClick = (product: Product) => {
-    setSelectedProduct(product);
-    setInput(product.barcode);
-    addNumber(product.barcode);
-    toast.success(`Loaded ${product.name}`);
-  };
+  }, [resolvedValue, mode]);
 
   const handleCopy = async () => {
     if (!resolvedValue) return;
@@ -93,7 +71,15 @@ export default function BarcodeGenerator({ initialValue = "", onOpenScanner }: P
     }
   };
 
-  const activeProduct = selectedProduct || matchResult.matchedProduct;
+  const handlePrint = () => {
+    if (!resolvedValue) return;
+    window.print();
+  };
+
+  const handleSelectHistory = (item: string) => {
+    setInput(item);
+    toast.success(`Loaded ${item}`);
+  };
 
   return (
     <div className="generator">
@@ -101,18 +87,18 @@ export default function BarcodeGenerator({ initialValue = "", onOpenScanner }: P
         <h1 className="generator__title">
           {lang === "ar" ? (
             <>
-              باركود <span className="brand-accent">هنغرستيشن</span>
+              مولد <span className="brand-accent">الباركود</span>
             </>
           ) : (
             <>
-              Hunger<span className="brand-accent">Station</span> Barcode
+              Barcode <span className="brand-accent">Generator</span>
             </>
           )}
         </h1>
         <p className="generator__subtitle">
           {lang === "ar"
-            ? "أدخل آخر 5–7 أرقام من الباركود أو رمز SKU للحصول على الباركود فوراً"
-            : "Enter last 5–7 digits or SKU for instant complete barcode generation"}
+            ? "أدخل أي رقم أو نص لإنشاء باركود فوري ورمز QR مع مسح مباشر"
+            : "Enter digits or text for instant barcode & QR generation"}
         </p>
       </div>
 
@@ -121,22 +107,17 @@ export default function BarcodeGenerator({ initialValue = "", onOpenScanner }: P
         <button
           type="button"
           className={`generator__mode-btn ${mode === "barcode" ? "generator__mode-btn--active" : ""}`}
-          onClick={() => {
-            setMode("barcode");
-            setSelectedProduct(null);
-          }}
+          onClick={() => setMode("barcode")}
         >
+          <Barcode size={15} />
           <span>{t.barcode}</span>
         </button>
         <button
           type="button"
           className={`generator__mode-btn ${mode === "qr" ? "generator__mode-btn--active" : ""}`}
-          onClick={() => {
-            setMode("qr");
-            setSelectedProduct(null);
-          }}
+          onClick={() => setMode("qr")}
         >
-          <QrCode size={14} />
+          <QrCode size={15} />
           <span>{t.qrCode}</span>
         </button>
       </div>
@@ -145,10 +126,7 @@ export default function BarcodeGenerator({ initialValue = "", onOpenScanner }: P
       <div className="generator__input-section">
         <NumberInput
           value={input}
-          onChange={(v) => {
-            setInput(v);
-            setSelectedProduct(null);
-          }}
+          onChange={(v) => setInput(v)}
           onSubmit={() => {
             if (resolvedValue) addNumber(resolvedValue);
           }}
@@ -157,43 +135,38 @@ export default function BarcodeGenerator({ initialValue = "", onOpenScanner }: P
           placeholder={
             mode === "qr"
               ? t.enterTextOrUrl
-              : "Enter last 5–7 digits or SKU (e.g. 276458, 06WMI4)…"
+              : "Enter number or code (e.g. 6281007012345)..."
           }
         />
       </div>
 
-      {/* Case 1: EXACT MATCH / FULL BARCODE RESOLVED */}
-      {resolvedValue && mode === "barcode" && (
+      {/* Barcode / QR Preview Card */}
+      {resolvedValue ? (
         <div className="smart-match-card smart-match-card--exact">
           <div className="smart-match-card__header">
             <div className="smart-match-card__badge">
               <Sparkles size={13} />
               <span>
-                {matchResult.status === "exact_match" && input.length < 12
-                  ? `Matched suffix: ${input} → ${resolvedValue}`
-                  : `Complete Barcode: ${resolvedValue}`}
+                {mode === "barcode"
+                  ? `Barcode: ${resolvedValue}`
+                  : `QR Code: ${resolvedValue.length > 28 ? resolvedValue.slice(0, 28) + "…" : resolvedValue}`}
               </span>
             </div>
-            <span className="smart-match-card__format">{format}</span>
+            {mode === "barcode" && (
+              <span className="smart-match-card__format">{format}</span>
+            )}
           </div>
 
-          {activeProduct && (
-            <div className="smart-match-product-info">
-              <span className="smart-match-product-info__name">{activeProduct.name}</span>
-              <div className="smart-match-product-info__meta">
-                <span className="smart-match-product-info__sku">SKU: {activeProduct.sku}</span>
-                <span className="smart-match-product-info__cat">{activeProduct.category}</span>
-                {activeProduct.isEvd && <span className="smart-match-product-info__evd">☕ EVD</span>}
-              </div>
-            </div>
-          )}
-
           <div className="smart-match-card__barcode">
-            <BarcodePreview
-              value={resolvedValue}
-              format={format}
-              onError={() => {}}
-            />
+            {mode === "barcode" ? (
+              <BarcodePreview
+                value={resolvedValue}
+                format={format}
+                onError={() => {}}
+              />
+            ) : (
+              <QRCodePreview value={resolvedValue} onError={() => {}} />
+            )}
           </div>
 
           <div className="smart-match-card__actions">
@@ -213,77 +186,42 @@ export default function BarcodeGenerator({ initialValue = "", onOpenScanner }: P
               <Download size={15} />
               <span>Download</span>
             </button>
-          </div>
-        </div>
-      )}
-
-      {/* Case 2: MULTIPLE MATCHES — User selects the intended product */}
-      {matchResult.status === "multiple_matches" && mode === "barcode" && (
-        <div className="smart-multi-match">
-          <div className="smart-multi-match__title">
-            <HelpCircle size={15} className="text-amber-400" />
-            <span>
-              Found {matchResult.products.length} products ending with <b>"{input}"</b> — Select matching item:
-            </span>
-          </div>
-          <div className="smart-multi-match__list" role="listbox">
-            {matchResult.products.map((p) => (
-              <button
-                key={p.sku}
-                type="button"
-                className="smart-multi-match__item"
-                onClick={() => handleProductCardClick(p)}
-              >
-                <div className="smart-multi-match__item-main">
-                  <span className="smart-multi-match__item-name">{p.name}</span>
-                  <div className="smart-multi-match__item-meta">
-                    <span className="smart-multi-match__item-sku">SKU: {p.sku}</span>
-                    <span className="smart-multi-match__item-cat">{p.subcategory || p.category}</span>
-                    {p.isEvd && <span className="smart-match-product-info__evd">☕ EVD</span>}
-                  </div>
-                </div>
-                <div className="smart-multi-match__item-right">
-                  <code>{p.barcode}</code>
-                  <span className="smart-multi-match__select-btn">Generate →</span>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Case 3: NOT FOUND IN DATABASE — Direct fallback button to Camera Scanner */}
-      {matchResult.status === "not_found" && mode === "barcode" && (
-        <div className="smart-not-found">
-          <div className="smart-not-found__banner">
-            <Package size={28} className="text-slate-400" />
-            <div>
-              <h4>No product found for "{input}"</h4>
-              <p>The partial number is not in the local database. Scan the full barcode from the device screen.</p>
-            </div>
-          </div>
-
-          {onOpenScanner && (
             <button
               type="button"
-              className="button button--primary smart-not-found__scan-btn"
+              className="button button--secondary smart-action-btn"
+              onClick={handlePrint}
+            >
+              <Printer size={15} />
+              <span>Print</span>
+            </button>
+            {onOpenScanner && (
+              <button
+                type="button"
+                className="button button--secondary smart-action-btn"
+                onClick={onOpenScanner}
+              >
+                <Camera size={15} />
+                <span>Scan</span>
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
+        onOpenScanner && (
+          <div className="generator__empty-state">
+            <button
+              type="button"
+              className="button button--primary generator__scan-cta"
               onClick={onOpenScanner}
             >
               <Camera size={18} />
-              <span>Open Camera Scanner (OCR)</span>
+              <span>{lang === "ar" ? "فتح الماسح بالكاميرا" : "Open Camera Scanner"}</span>
             </button>
-          )}
-        </div>
+          </div>
+        )
       )}
 
-      {/* QR Code preview when in QR mode */}
-      {mode === "qr" && input.trim() && (
-        <div className="generator__barcode">
-          <QRCodePreview value={input.trim()} onError={() => {}} />
-        </div>
-      )}
-
-      {/* Formats scrollbar at bottom */}
+      {/* Formats scrollbar at bottom (in barcode mode) */}
       {mode === "barcode" && (
         <div className="generator__formats-scroll mt-4">
           {FORMAT_OPTIONS.map((f) => (
@@ -296,6 +234,38 @@ export default function BarcodeGenerator({ initialValue = "", onOpenScanner }: P
               {FORMAT_CONFIG[f].label}
             </button>
           ))}
+        </div>
+      )}
+
+      {/* Recent Scans / History Section */}
+      {history.length > 0 && (
+        <div className="generator__history-section mt-6">
+          <div className="flex items-center justify-between mb-2">
+            <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-400">
+              <History size={13} />
+              {lang === "ar" ? "السجل الأخير" : "Recent History"}
+            </span>
+            <button
+              type="button"
+              className="text-xs text-slate-500 hover:text-rose-400 transition-colors flex items-center gap-1"
+              onClick={clearHistory}
+            >
+              <Trash2 size={12} />
+              <span>{lang === "ar" ? "مسح" : "Clear"}</span>
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {history.slice(0, 8).map((item) => (
+              <button
+                key={item}
+                type="button"
+                className="px-2.5 py-1 text-xs font-mono bg-white/5 hover:bg-white/10 border border-white/10 rounded-md transition-colors"
+                onClick={() => handleSelectHistory(item)}
+              >
+                {item}
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>

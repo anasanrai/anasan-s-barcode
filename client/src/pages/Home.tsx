@@ -1,13 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { Barcode, Camera, Coffee } from "lucide-react";
+import { Barcode, Camera } from "lucide-react";
 import BarcodeGenerator from "@/components/BarcodeGenerator";
 import PelicanScanner from "@/components/PelicanScanner";
 import Header from "@/components/Header";
-import LeaderboardModal from "@/components/LeaderboardModal";
-import AdminPage from "./AdminPage";
-import StarGalleryPage from "./StarGalleryPage";
 import AboutPage from "./AboutPage";
-import EvdPage from "./EvdPage";
 import { useNumberHistory } from "@/lib/useNumberHistory";
 import { useLang } from "@/lib/i18n";
 
@@ -25,16 +21,13 @@ function useIsMobile() {
   return mobile;
 }
 
-function initialView(): "app" | "admin" | "stars" | "about" | "evd" {
+function initialView(): "app" | "about" {
   if (typeof window === "undefined") return "app";
-  if (window.location.pathname.startsWith("/admin")) return "admin";
-  if (window.location.pathname.startsWith("/stars")) return "stars";
   if (window.location.pathname.startsWith("/about")) return "about";
-  if (window.location.pathname.startsWith("/evd")) return "evd";
   return "app";
 }
 
-type Screen = "scan" | "generate" | "evd";
+type Screen = "scan" | "generate";
 
 export default function Home() {
   const { lang } = useLang();
@@ -42,13 +35,11 @@ export default function Home() {
   const [screen, setScreen] = useState<Screen>(() => {
     const qp = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("screen") : null;
     if (qp === "scan") return "scan";
-    if (qp === "evd") return "evd";
-    if (qp === "generate" || qp === "lookup") return "generate";
+    if (qp === "generate") return "generate";
     return isMobile ? "scan" : "generate";
   });
-  const [view, setView] = useState<"app" | "admin" | "stars" | "about" | "evd">(initialView);
+  const [view, setView] = useState<"app" | "about">(initialView);
   const [detectedNumber, setDetectedNumber] = useState("");
-  const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
 
   const { addNumber } = useNumberHistory();
 
@@ -59,15 +50,8 @@ export default function Home() {
   // Listen for browser popstate / back button
   useEffect(() => {
     const onPop = () => {
-      if (window.location.pathname.startsWith("/admin")) {
-        setView("admin");
-      } else if (window.location.pathname.startsWith("/stars")) {
-        setView("stars");
-      } else if (window.location.pathname.startsWith("/about")) {
+      if (window.location.pathname.startsWith("/about")) {
         setView("about");
-      } else if (window.location.pathname.startsWith("/evd")) {
-        setScreen("evd");
-        setView("app");
       } else {
         setView("app");
       }
@@ -80,33 +64,16 @@ export default function Home() {
     (value: string) => {
       addNumber(value);
       setDetectedNumber(value);
+      // On desktop, transition to workbench; on mobile, keep dedicated camera result modal with Scan Again
+      if (!isMobile) {
+        setScreen("generate");
+      }
     },
-    [addNumber],
+    [addNumber, isMobile],
   );
 
   const handleGoToScan = () => setScreen("scan");
   const handleGoToGenerate = () => setScreen("generate");
-  const handleGoToEvd = () => setScreen("evd");
-
-  const handleOpenAdmin = () => {
-    window.history.pushState({}, "", "/admin");
-    setView("admin");
-  };
-
-  const handleCloseAdmin = () => {
-    window.history.pushState({}, "", "/");
-    setView("app");
-  };
-
-  const handleOpenStars = () => {
-    window.history.pushState({}, "", "/stars");
-    setView("stars");
-  };
-
-  const handleCloseStars = () => {
-    window.history.pushState({}, "", "/");
-    setView("app");
-  };
 
   const handleOpenAbout = () => {
     window.history.pushState({}, "", "/about");
@@ -118,19 +85,11 @@ export default function Home() {
     setView("app");
   };
 
-  if (view === "admin") {
-    return <AdminPage onBack={handleCloseAdmin} />;
-  }
-
-  if (view === "stars") {
-    return <StarGalleryPage onBack={handleCloseStars} />;
-  }
-
   if (view === "about") {
     return <AboutPage onBack={handleCloseAbout} />;
   }
 
-  /** Unified 3-tab navigation bar */
+  /** Unified 2-tab navigation bar */
   const tabBar = (
     <div className="pelican-tabs">
       <button
@@ -140,15 +99,6 @@ export default function Home() {
       >
         <Barcode size={16} />
         <span>{lang === "ar" ? "المولد" : "Generator"}</span>
-      </button>
-
-      <button
-        type="button"
-        className={`pelican-tab pelican-tab--evd ${screen === "evd" ? "pelican-tab--active" : ""}`}
-        onClick={handleGoToEvd}
-      >
-        <Coffee size={16} />
-        <span>EVD</span>
       </button>
 
       <button
@@ -166,11 +116,7 @@ export default function Home() {
   if (isMobile) {
     return (
       <div className="pelican-mobile-shell">
-        <Header
-          onOpenLeaderboard={() => setIsLeaderboardOpen(true)}
-          onGoToAdmin={handleOpenAdmin}
-          onOpenAbout={handleOpenAbout}
-        />
+        <Header onOpenAbout={handleOpenAbout} />
         <main className={`pelican-app pelican-app--${screen}`}>
           {screen === "scan" && <PelicanScanner onDetected={handleDetected} />}
           {screen === "generate" && (
@@ -179,23 +125,8 @@ export default function Home() {
               onOpenScanner={handleGoToScan}
             />
           )}
-          {screen === "evd" && (
-            <EvdPage
-              onBack={handleGoToGenerate}
-              onSelectBarcode={(barcode) => {
-                setDetectedNumber(barcode);
-                setScreen("generate");
-              }}
-            />
-          )}
         </main>
         {tabBar}
-
-        <LeaderboardModal
-          isOpen={isLeaderboardOpen}
-          onClose={() => setIsLeaderboardOpen(false)}
-          onOpenStars={handleOpenStars}
-        />
       </div>
     );
   }
@@ -203,26 +134,12 @@ export default function Home() {
   // Desktop layout (>= 1100px): centered stage
   return (
     <div className="desktop-workspace">
-      <Header
-        onOpenLeaderboard={() => setIsLeaderboardOpen(true)}
-        onGoToAdmin={handleOpenAdmin}
-        onOpenAbout={handleOpenAbout}
-      />
+      <Header onOpenAbout={handleOpenAbout} />
 
       <main className="desktop-stage">
         {screen === "scan" ? (
           <div className="desktop-stage__scanner">
             <PelicanScanner onDetected={handleDetected} />
-          </div>
-        ) : screen === "evd" ? (
-          <div className="desktop-stage__evd">
-            <EvdPage
-              onBack={handleGoToGenerate}
-              onSelectBarcode={(barcode) => {
-                setDetectedNumber(barcode);
-                setScreen("generate");
-              }}
-            />
           </div>
         ) : (
           <div className="desktop-stage__generator">
@@ -245,14 +162,6 @@ export default function Home() {
         </button>
         <button
           type="button"
-          className={`pelican-tab pelican-tab--evd ${screen === "evd" ? "pelican-tab--active" : ""}`}
-          onClick={handleGoToEvd}
-        >
-          <Coffee size={16} />
-          <span>EVD Coffee</span>
-        </button>
-        <button
-          type="button"
           className={`pelican-tab ${screen === "scan" ? "pelican-tab--active" : ""}`}
           onClick={handleGoToScan}
         >
@@ -260,12 +169,6 @@ export default function Home() {
           <span>{lang === "ar" ? "المسح" : "Scanner"}</span>
         </button>
       </div>
-
-      <LeaderboardModal
-        isOpen={isLeaderboardOpen}
-        onClose={() => setIsLeaderboardOpen(false)}
-        onOpenStars={handleOpenStars}
-      />
     </div>
   );
 }
