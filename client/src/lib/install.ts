@@ -11,8 +11,14 @@ export function isIosUserAgent(userAgent: string): boolean {
 }
 
 export function isStandaloneDisplay(): boolean {
+  if (typeof window === "undefined") return false;
   const safariStandalone = (navigator as Navigator & { standalone?: boolean }).standalone;
-  return window.matchMedia("(display-mode: standalone)").matches || safariStandalone === true;
+  const isCapacitor = !!(window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.();
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    safariStandalone === true ||
+    isCapacitor
+  );
 }
 
 export function getInstallMode({ isIos, isStandalone, hasDeferredPrompt }: InstallContext): InstallMode {
