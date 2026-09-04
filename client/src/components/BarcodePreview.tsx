@@ -10,6 +10,7 @@ type BarcodePreviewProps = {
   format?: BarcodeFormat;
   onError: (message: string) => void;
   onValid?: (valid: boolean) => void;
+  showActions?: boolean;
 };
 
 export type BarcodePreviewHandle = {
@@ -35,7 +36,7 @@ function getBarcodeColors(_theme: "dark" | "light") {
 }
 
 const BarcodePreview = forwardRef<BarcodePreviewHandle, BarcodePreviewProps>(function BarcodePreview(
-  { value, format = "CODE128", onError, onValid },
+  { value, format = "CODE128", onError, onValid, showActions = false },
   ref,
 ) {
   const { theme } = useTheme();
@@ -125,14 +126,16 @@ const BarcodePreview = forwardRef<BarcodePreviewHandle, BarcodePreviewProps>(fun
           </span>
         )}
       </div>
-      <div className="barcode-actions">
-        <button className="barcode-download" type="button" onClick={download}>
-          <Download size={12} /> PNG
-        </button>
-        <button className="barcode-download" type="button" onClick={downloadSvg}>
-          <Download size={12} /> SVG
-        </button>
-      </div>
+      {showActions && (
+        <div className="barcode-actions">
+          <button className="barcode-download" type="button" onClick={download}>
+            <Download size={14} className="barcode-download__icon" /> PNG
+          </button>
+          <button className="barcode-download" type="button" onClick={downloadSvg}>
+            <Download size={14} className="barcode-download__icon" /> SVG
+          </button>
+        </div>
+      )}
     </div>
   );
 });

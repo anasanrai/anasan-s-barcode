@@ -29,9 +29,18 @@ describe("Smart Partial Barcode Lookup", () => {
     expect(res.resolvedBarcode).toBe("06281016276458");
   });
 
-  it("allows direct generation for valid 8-18 digit numeric codes not in DB", () => {
-    const res = lookupBySuffixOrSku("15781512805");
+  it("resolves suffix 63527 to Mirinda Citrus Zero barcode", () => {
+    const res = lookupBySuffixOrSku("63527");
     expect(res.status).toBe("exact_match");
-    expect(res.resolvedBarcode).toBe("15781512805");
+    expect(res.resolvedBarcode).toBe("00012000063527");
+    expect(res.matchedProduct?.name).toContain("Mirinda Citrus");
+  });
+
+  it("resolves secondary barcode suffix in multi-barcode products", () => {
+    // 081036 -> Lusine White Sliced Bread 600g (06281100081036)
+    const res = lookupBySuffixOrSku("081036");
+    expect(res.status).toBe("exact_match");
+    expect(res.resolvedBarcode).toBe("06281100081036");
+    expect(res.matchedProduct?.name).toContain("Lusine");
   });
 });

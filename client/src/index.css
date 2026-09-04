@@ -347,7 +347,7 @@ button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparen
 .scanner-result-card__barcode .barcode-art {
   width: 100%; max-width: 100%;
 }
-.scanner-result-card__barcode .barcode-art svg {
+.scanner-result-card__barcode .barcode-art > svg {
   width: 100% !important;
   height: clamp(120px, 30vw, 160px) !important;
 }
@@ -2285,7 +2285,7 @@ html[dir="rtl"] .number-input__actions {
   width: 100%;
   max-width: 100%;
 }
-.smart-match-card__barcode .barcode-art svg {
+.smart-match-card__barcode .barcode-art > svg {
   width: 100% !important;
   height: clamp(130px, 32vw, 170px) !important;
 }

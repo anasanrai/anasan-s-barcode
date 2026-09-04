@@ -106,12 +106,17 @@ export default function Header({ onOpenLeaderboard, onGoToAdmin, onOpenAbout }: 
           <span>{lang === "en" ? t.ar : t.en}</span>
         </button>
 
-        {mode !== "installed" && (
-          <button type="button" className="hs-install-btn" onClick={() => void startInstall()}>
-            <Download size={14} />
-            <span>{t.install}</span>
-          </button>
-        )}
+        <a
+          className="hs-install-btn"
+          href="https://github.com/anasanrai/anasan-s-barcode/releases/latest"
+          target="_blank"
+          rel="noreferrer"
+          aria-label={t.install}
+          title="Install / Download APK from GitHub Release"
+        >
+          <Download size={14} />
+          <span>{t.install}</span>
+        </a>
 
         {onOpenAbout && (
           <button

@@ -1,12 +1,8 @@
 /**
  * build-product-db.mjs
- * Merges both product CSV files, deduplicates by sku_id,
- * strips deleted products, and writes client/src/data/products.ts
- *
- * Rules:
- *  - is_deleted=true  → excluded
- *  - multi-barcode    → use first barcode only
- *  - EVD tag          → sku starts with "EVD" OR parent_category = "Everyday Roastery"
+ * Merges product CSV files, deduplicates by sku_id,
+ * extracts all associated barcodes (including secondary/multi barcodes),
+ * and writes client/src/data/products.ts
  */
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
@@ -24,7 +20,6 @@ const CSV_FILES = [
 const outDir = join(root, "client", "src", "data");
 const targetTsFile = join(outDir, "products.ts");
 
-// Check if any CSV exists. If none exist (e.g. in Vercel/CI build), use prebuilt products.ts
 const existingCsvs = CSV_FILES.map((f) => join(root, f)).filter((p) => existsSync(p));
 
 if (existingCsvs.length === 0) {
@@ -60,14 +55,20 @@ function parseCsvLine(line) {
 }
 
 /**
- * Pick the first valid barcode from a comma-separated barcode string.
- * Strips trailing quotes that may appear in some rows.
+ * Extract all clean barcodes from a comma-separated barcode string.
  */
-function pickFirstBarcode(raw) {
-  if (!raw) return "";
-  const cleaned = raw.replace(/"/g, "").trim();
+function parseBarcodes(raw) {
+  if (!raw) return [];
+  const cleaned = raw.replace(/["\r\n]/g, "").trim();
   const parts = cleaned.split(",").map((s) => s.trim()).filter(Boolean);
-  return parts[0] ?? "";
+  const valid = [];
+  for (const part of parts) {
+    const digits = part.replace(/\D/g, "");
+    if (digits.length >= 6 && !valid.includes(digits)) {
+      valid.push(digits);
+    }
+  }
+  return valid;
 }
 
 const seen = new Map(); // sku_id → product record
@@ -94,27 +95,37 @@ for (const filename of CSV_FILES) {
     const sku = cols[idx.sku]?.trim();
     if (!sku || sku === "sku_id") continue; // skip header repeat
 
-    const isDeleted = cols[idx.deleted]?.trim().toLowerCase() === "true";
-    if (isDeleted) continue; // skip deleted products
+    const barcodes = parseBarcodes(cols[idx.barcode]);
+    if (barcodes.length === 0) continue; // skip entries with no barcode
 
-    const barcode = pickFirstBarcode(cols[idx.barcode]);
-    if (!barcode) continue; // skip entries with no barcode
+    const name = cols[idx.name]?.trim() ?? "";
+    if (!name) continue;
 
     const parentCat = cols[idx.category]?.trim() ?? "";
     const subCat = cols[idx.subcategory]?.trim() ?? "";
     const isEvd =
       sku.toUpperCase().startsWith("EVD") ||
-      parentCat === "Everyday Roastery";
+      parentCat === "Everyday Roastery" ||
+      parentCat.toLowerCase().includes("coffee");
 
-    if (!seen.has(sku)) {
+    const existing = seen.get(sku);
+    if (!existing) {
       seen.set(sku, {
         sku,
-        name: cols[idx.name]?.trim() ?? "",
-        barcode,
+        name,
+        barcode: barcodes[0],
+        barcodes,
         category: parentCat,
         subcategory: subCat,
         isEvd,
       });
+    } else {
+      // Merge any new barcodes discovered in secondary dark store file
+      for (const b of barcodes) {
+        if (!existing.barcodes.includes(b)) {
+          existing.barcodes.push(b);
+        }
+      }
     }
   }
 }
@@ -124,8 +135,8 @@ const products = Array.from(seen.values()).sort((a, b) =>
 );
 
 const evdCount = products.filter((p) => p.isEvd).length;
-console.log(`[build-product-db] Total active products: ${products.length}`);
-console.log(`[build-product-db] EVD Coffee products: ${evdCount}`);
+console.log(`[build-product-db] Total unique active products: ${products.length}`);
+console.log(`[build-product-db] Total EVD Coffee products: ${evdCount}`);
 
 mkdirSync(outDir, { recursive: true });
 
@@ -137,6 +148,7 @@ export interface Product {
   sku: string;
   name: string;
   barcode: string;
+  barcodes?: string[];
   category: string;
   subcategory: string;
   isEvd: boolean;
@@ -148,4 +160,4 @@ export const EVD_PRODUCTS: Product[] = PRODUCTS.filter((p) => p.isEvd);
 `;
 
 writeFileSync(join(outDir, "products.ts"), ts, "utf8");
-console.log(`[build-product-db] Written: client/src/data/products.ts`);
+console.log(`[build-product-db] Written: ${targetTsFile}`);

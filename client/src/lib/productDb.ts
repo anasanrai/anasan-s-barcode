@@ -39,11 +39,18 @@ export function lookupBySuffixOrSku(input: string, evdOnly = false): SuffixMatch
   const qUp = q.toUpperCase();
 
   // 1. Direct Full Barcode Match in DB
-  const exactBarcodeMatch = pool.find((p) => p.barcode === qClean || p.barcode === q);
+  const exactBarcodeMatch = pool.find((p) =>
+    p.barcode === qClean ||
+    p.barcode === q ||
+    (p.barcodes && p.barcodes.some((b) => b === qClean || b === q)),
+  );
   if (exactBarcodeMatch) {
+    const matchedBarcode =
+      exactBarcodeMatch.barcodes?.find((b) => b === qClean || b === q) ||
+      exactBarcodeMatch.barcode;
     return {
       status: "exact_match",
-      resolvedBarcode: exactBarcodeMatch.barcode,
+      resolvedBarcode: matchedBarcode,
       matchedProduct: exactBarcodeMatch,
       products: [exactBarcodeMatch],
       query: q,
@@ -70,12 +77,19 @@ export function lookupBySuffixOrSku(input: string, evdOnly = false): SuffixMatch
 
   // 3. Suffix Matching: Barcode ends with query (e.g. last 5-7 digits)
   if (/^\d{3,13}$/.test(qClean)) {
-    const suffixMatches = pool.filter((p) => p.barcode.endsWith(qClean));
+    const suffixMatches = pool.filter(
+      (p) =>
+        p.barcode.endsWith(qClean) ||
+        (p.barcodes && p.barcodes.some((b) => b.endsWith(qClean))),
+    );
     if (suffixMatches.length === 1) {
+      const p = suffixMatches[0];
+      const matchedBarcode =
+        p.barcodes?.find((b) => b.endsWith(qClean)) || p.barcode;
       return {
         status: "exact_match",
-        resolvedBarcode: suffixMatches[0].barcode,
-        matchedProduct: suffixMatches[0],
+        resolvedBarcode: matchedBarcode,
+        matchedProduct: p,
         products: suffixMatches,
         query: q,
       };
@@ -99,7 +113,7 @@ export function lookupBySuffixOrSku(input: string, evdOnly = false): SuffixMatch
     };
   }
 
-  // 5. General search fallback (contains query in name/sku)
+  // 5. General search fallback (contains query in name/sku/barcode)
   const fuzzy = searchProducts(q, evdOnly);
   if (fuzzy.length > 0) {
     return {
@@ -132,7 +146,7 @@ export function searchProducts(query: string, evdOnly = false): Product[] {
   for (const product of pool) {
     const nSku = norm(product.sku);
     const nName = norm(product.name);
-    const nBarcode = product.barcode;
+    const allBarcodes = product.barcodes || [product.barcode];
 
     let score = 0;
 
@@ -144,16 +158,16 @@ export function searchProducts(query: string, evdOnly = false): Product[] {
     else if (product.sku.toUpperCase().startsWith(qUp)) {
       score = 80;
     }
-    // Barcode ends with query (last-digits lookup)
-    else if (nBarcode.endsWith(q)) {
+    // Any barcode ends with query (last-digits lookup)
+    else if (allBarcodes.some((b) => b.endsWith(q))) {
       score = 75;
     }
     // SKU contains query
     else if (nSku.includes(nq)) {
       score = 60;
     }
-    // Barcode contains query
-    else if (nBarcode.includes(q)) {
+    // Any barcode contains query
+    else if (allBarcodes.some((b) => b.includes(q))) {
       score = 55;
     }
     // Name contains query
