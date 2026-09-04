@@ -1,38 +1,28 @@
-import { Activity, Copy, Check, Flashlight, ImageUp, Camera, RefreshCw, Share2, Sparkles, X, Sun, Moon } from "lucide-react";
+import { Copy, Check, Flashlight, RefreshCw, Sparkles, X, Sun, Moon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
 import { detectBarcodeFormat, extractPelicanNumber, validateBarcode } from "@/lib/pelican";
 import { validateBarcodeString } from "@/lib/scanner/barcodeValidation";
 import { playSuccessTone } from "@/lib/scanner/audioFeedback";
 import { useLang } from "@/lib/i18n";
 import BarcodePreview from "./BarcodePreview";
 import { evaluateFrameQuality } from "@/lib/scanner/frameQuality";
-import { exportBarcodeDataUrl } from "@/lib/scanner/barcodeEngine";
 import { recognizeNumericTarget } from "@/lib/scanner/numericOcr";
 import { TemporalConsensusEngine } from "@/lib/scanner/temporalConsensus";
-import type { FrameQualityMetrics, PreprocessPass, ScannerStatus, ScannerTelemetry } from "@/lib/scanner/types";
+import type { FrameQualityMetrics, PreprocessPass, ScannerStatus } from "@/lib/scanner/types";
 
 type Props = {
   onDetected: (value: string) => void;
-  showDebugByDefault?: boolean;
 };
 
-export default function PelicanScanner({ onDetected, showDebugByDefault = false }: Props) {
-  const { t } = useLang();
+export default function PelicanScanner({ onDetected }: Props) {
+  const { lang, t } = useLang();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const cropCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const busyRef = useRef(false);
-  const timerRef = useRef<number | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const consensusEngineRef = useRef<TemporalConsensusEngine>(new TemporalConsensusEngine());
   const onDetectedRef = useRef(onDetected);
   onDetectedRef.current = onDetected;
-
-  // Frame timing & FPS tracking
-  const frameCountRef = useRef(0);
-  const lastFpsTimeRef = useRef(Date.now());
-  const currentFpsRef = useRef(0);
 
   const [status, setStatus] = useState<ScannerStatus>("STARTING");
   const [torchOn, setTorchOn] = useState(false);
@@ -41,22 +31,8 @@ export default function PelicanScanner({ onDetected, showDebugByDefault = false 
   const [cameraError, setCameraError] = useState(false);
   const [scannedBarcode, setScannedBarcode] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [guidance, setGuidance] = useState<FrameQualityMetrics["guidance"]>(null);
   const [candidateLive, setCandidateLive] = useState<string | null>(null);
-  const [showDebug, setShowDebug] = useState(showDebugByDefault);
-  const [maxBrightness, setMaxBrightness] = useState(false);
-
-  const [telemetry, setTelemetry] = useState<ScannerTelemetry>({
-    fps: 0,
-    frameProcessingMs: 0,
-    ocrMs: 0,
-    totalPipelineMs: 0,
-    lastSharpness: 0,
-    lastBrightness: 0,
-    status: "STARTING",
-    detectedCandidate: null,
-    activePass: "standard",
-  });
+  const [guidance, setGuidance] = useState<string | null>(null);
 
   const activeLoopRef = useRef(false);
   const animIdRef = useRef<number | null>(null);
@@ -65,8 +41,7 @@ export default function PelicanScanner({ onDetected, showDebugByDefault = false 
 
   const stopCamera = useCallback(() => {
     activeLoopRef.current = false;
-    if (timerRef.current) window.clearInterval(timerRef.current);
-    timerRef.current = null;
+    busyRef.current = false;
     if (animIdRef.current !== null) {
       window.cancelAnimationFrame(animIdRef.current);
       animIdRef.current = null;
@@ -96,8 +71,8 @@ export default function PelicanScanner({ onDetected, showDebugByDefault = false 
   };
 
   /**
-   * Crop ROI from the active video feed directly into a reusable canvas.
-   * Target ROI is centered at 78% width and 42% height of the viewfinder.
+   * Crop center ROI from active video feed directly into a compact 480x160 canvas.
+   * Target ROI is a horizontal card-scanner bounding box (80% width x 28% height).
    */
   const captureRoiCanvas = useCallback((): { canvas: HTMLCanvasElement; quality: FrameQualityMetrics } | null => {
     const v = videoRef.current;
@@ -105,13 +80,13 @@ export default function PelicanScanner({ onDetected, showDebugByDefault = false 
 
     const vw = v.videoWidth;
     const vh = v.videoHeight;
-    const sw = Math.round(vw * 0.78);
-    const sh = Math.round(vh * 0.42);
+    const sw = Math.round(vw * 0.82);
+    const sh = Math.round(vh * 0.28);
     const sx = Math.round((vw - sw) / 2);
     const sy = Math.round((vh - sh) / 2);
 
-    const targetW = 640;
-    const targetH = Math.round((targetW * sh) / sw);
+    const targetW = 480;
+    const targetH = 160;
 
     let off = cropCanvasRef.current;
     if (!off) {
@@ -142,7 +117,7 @@ export default function PelicanScanner({ onDetected, showDebugByDefault = false 
       setScannedBarcode(cand);
       onDetectedRef.current(cand);
 
-      // Trigger instant audio chime & haptic feedback upon confirmation
+      // Trigger instant sound chime & haptic feedback on match
       playSuccessTone();
       try {
         if (typeof navigator !== "undefined" && "vibrate" in navigator) {
@@ -154,13 +129,10 @@ export default function PelicanScanner({ onDetected, showDebugByDefault = false 
   );
 
   /**
-   * Main continuous real-time scanning engine loop (banking-scanner standard)
+   * Continuous banking-card style scanning engine loop
    */
   const startScanningLoop = useCallback(() => {
-    // Clear previous loop if any
     activeLoopRef.current = false;
-    if (timerRef.current) window.clearInterval(timerRef.current);
-    timerRef.current = null;
     if (animIdRef.current !== null) {
       window.cancelAnimationFrame(animIdRef.current);
       animIdRef.current = null;
@@ -170,8 +142,9 @@ export default function PelicanScanner({ onDetected, showDebugByDefault = false 
     setStatus("SEARCHING");
     activeLoopRef.current = true;
     lastProcessTimeRef.current = 0;
+    busyRef.current = false;
 
-    const MIN_INTERVAL_MS = 40; // ~25 fps scan throttle for ultra-responsiveness
+    const MIN_INTERVAL_MS = 35; // ~28 fps continuous scan loop
 
     const processFrame = async () => {
       if (!activeLoopRef.current) return;
@@ -180,72 +153,42 @@ export default function PelicanScanner({ onDetected, showDebugByDefault = false 
       if (!busyRef.current && now - lastProcessTimeRef.current >= MIN_INTERVAL_MS) {
         lastProcessTimeRef.current = now;
 
-        // Track FPS
-        frameCountRef.current += 1;
-        const nowMs = Date.now();
-        if (nowMs - lastFpsTimeRef.current >= 1000) {
-          currentFpsRef.current = Math.round((frameCountRef.current * 1000) / (nowMs - lastFpsTimeRef.current));
-          frameCountRef.current = 0;
-          lastFpsTimeRef.current = nowMs;
-        }
-
         const frameData = captureRoiCanvas();
         if (frameData) {
           const { canvas, quality } = frameData;
           setGuidance(quality.guidance ?? null);
 
-          // Fast pre-OCR sharpness & exposure gating (<1ms)
-          if (!quality.isAcceptable && quality.guidance === "LOW_LIGHT" && quality.brightness < 18) {
-            setTelemetry((prev) => ({
-              ...prev,
-              fps: currentFpsRef.current,
-              lastSharpness: quality.sharpness,
-              lastBrightness: quality.brightness,
-              status: "SEARCHING",
-            }));
+          // If frame has extreme motion blur or pitch black, skip OCR to save battery
+          if (!quality.isAcceptable && quality.guidance === "LOW_LIGHT" && quality.brightness < 12) {
+            // Wait for better frame
           } else {
             busyRef.current = true;
-            const t0 = performance.now();
-
             try {
-              // Select adaptive optical pass
               let pass: PreprocessPass = "standard";
               if (quality.glareRatio > 0.25) {
                 pass = "glare_mitigation";
-              } else if (quality.contrast < 22 && quality.brightness < 120) {
+              } else if (quality.contrast < 24 && quality.brightness < 120) {
                 pass = "adaptive_binarize";
-              } else if (quality.brightness < 80 && quality.contrast > 35) {
+              } else if (quality.brightness < 70 && quality.contrast > 35) {
                 pass = "inverted";
               }
 
-              const candidate = await recognizeNumericTarget(canvas, { pass });
-              const ocrTime = Math.round(performance.now() - t0);
+              const candidate = await recognizeNumericTarget(canvas, { pass, timeoutMs: 400 });
 
-              if (candidate) {
+              if (candidate && activeLoopRef.current) {
                 setStatus("CANDIDATE_DETECTED");
                 setCandidateLive(candidate.value);
               }
 
               const locked = consensusEngineRef.current.push(candidate, quality.sharpness);
-              const totalPipelineTime = Math.round(performance.now() - t0);
-
-              setTelemetry({
-                fps: currentFpsRef.current,
-                frameProcessingMs: Math.round(performance.now() - t0),
-                ocrMs: ocrTime,
-                totalPipelineMs: totalPipelineTime,
-                lastSharpness: quality.sharpness,
-                lastBrightness: quality.brightness,
-                status: locked ? "CONFIRMED" : candidate ? "CANDIDATE_DETECTED" : "SEARCHING",
-                detectedCandidate: candidate?.value ?? null,
-                activePass: pass,
-              });
 
               if (locked && (validateBarcodeString(locked).valid || validateBarcode(locked).valid)) {
                 handleConfirmedMatch(locked);
-                return; // Stop loop once locked
+                return;
               }
-            } catch {} finally {
+            } catch {
+              // Ignore frame errors and continue next frame
+            } finally {
               busyRef.current = false;
             }
           }
@@ -276,6 +219,7 @@ export default function PelicanScanner({ onDetected, showDebugByDefault = false 
     setStatus("STARTING");
     setScannedBarcode(null);
     setCandidateLive(null);
+    setGuidance(null);
     stopCamera();
 
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -317,7 +261,7 @@ export default function PelicanScanner({ onDetected, showDebugByDefault = false 
 
       window.setTimeout(() => {
         if (video.paused) setNeedsGesture(true);
-      }, 400);
+      }, 300);
 
       const track = stream.getVideoTracks()[0];
       const caps = (track.getCapabilities?.() as unknown as { torch?: boolean }) ?? {};
@@ -349,283 +293,199 @@ export default function PelicanScanner({ onDetected, showDebugByDefault = false 
     try {
       await navigator.clipboard.writeText(scannedBarcode);
       setCopied(true);
-      toast.success(t.copied);
-      window.setTimeout(() => setCopied(false), 2000);
-    } catch {
-      toast.error("Failed to copy");
-    }
-  };
-
-  const handleShare = async () => {
-    if (!scannedBarcode) return;
-    const format = detectBarcodeFormat(scannedBarcode);
-    const dataUrl = exportBarcodeDataUrl(scannedBarcode, format);
-
-    if (navigator.share && dataUrl) {
-      try {
-        const blob = await (await fetch(dataUrl)).blob();
-        const file = new File([blob], `barcode-${scannedBarcode}.png`, { type: "image/png" });
-        await navigator.share({
-          title: `Barcode ${scannedBarcode}`,
-          text: scannedBarcode,
-          files: [file],
-        });
-        return;
-      } catch {}
-    }
-
-    if (dataUrl) {
-      const a = document.createElement("a");
-      a.href = dataUrl;
-      a.download = `barcode-${scannedBarcode}.png`;
-      a.click();
-      toast.success("Barcode image downloaded");
-    }
-  };
-
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.src = url;
-
-    try {
-      await new Promise<void>((res, rej) => {
-        img.onload = () => res();
-        img.onerror = () => rej(new Error("Image load failed"));
-      });
-
-      const canvas = document.createElement("canvas");
-      canvas.width = img.naturalWidth || img.width;
-      canvas.height = img.naturalHeight || img.height;
-      const ctx = canvas.getContext("2d");
-      if (ctx) {
-        ctx.drawImage(img, 0, 0);
-        const cand = await recognizeNumericTarget(canvas, { strict: false });
-        if (cand && validateBarcode(cand.value).valid) {
-          handleConfirmedMatch(cand.value);
-        } else {
-          toast.error("No numeric barcode recognized in photo");
-        }
-      }
-    } catch {
-      toast.error("Failed to process image");
-    } finally {
-      URL.revokeObjectURL(url);
-    }
+      setTimeout(() => setCopied(false), 2000);
+    } catch {}
   };
 
   return (
-    <div className={`pelican-scan ${maxBrightness ? "pelican-scan--max-bright" : ""}`}>
-      {/* Live camera stream */}
-      <video ref={videoRef} autoPlay muted playsInline className="pelican-video" />
+    <div className="pelican-scanner-view relative w-full h-full flex flex-col bg-black text-white overflow-hidden select-none">
+      {/* ── Background Live Video ───────────────────────────────────────── */}
+      <video
+        ref={videoRef}
+        className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+        playsInline
+        muted
+        autoPlay
+      />
 
-      {/* Viewfinder HUD */}
-      {!scannedBarcode && (
-        <>
-          <div className="pelican-overlay" aria-hidden="true">
-            <div className={`pelican-rect ${candidateLive ? "pelican-rect--candidate" : ""}`}>
-              <div className="pelican-rect__corner pelican-rect__corner--tl" />
-              <div className="pelican-rect__corner pelican-rect__corner--tr" />
-              <div className="pelican-rect__corner pelican-rect__corner--bl" />
-              <div className="pelican-rect__corner pelican-rect__corner--br" />
-              <div className="pelican-rect__laser" />
-            </div>
+      {/* ── Top Floating Flashlight / Actions ───────────────────────────── */}
+      <div className="relative z-20 flex items-center justify-between p-4 pt-3 pointer-events-auto">
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-black/60 backdrop-blur-md border border-white/10 text-white">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            {lang === "ar" ? "ماسح البطاقات الفوري" : "Instant Card Scanner"}
+          </span>
+        </div>
 
-            <div className="pelican-hud-status">
-              <span className={`pelican-hud-badge pelican-hud-badge--${status.toLowerCase()}`}>
-                <span className="pelican-hud-dot" />
-                {status === "CANDIDATE_DETECTED" ? t.lockingLive : status === "SEARCHING" ? t.scanningLive : t.startingCamera}
+        {torchSupported && (
+          <button
+            type="button"
+            className={`p-2.5 rounded-full transition-all backdrop-blur-md border ${
+              torchOn
+                ? "bg-amber-500 text-black border-amber-400 shadow-lg shadow-amber-500/30"
+                : "bg-black/60 text-white/80 border-white/15 active:scale-95"
+            }`}
+            onClick={toggleTorch}
+            aria-label="Toggle Flashlight"
+          >
+            <Flashlight size={18} />
+          </button>
+        )}
+      </div>
+
+      {/* ── Center Banking-Card Viewfinder ─────────────────────────────── */}
+      <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 pointer-events-none">
+        <div className="relative w-full max-w-[340px] aspect-[3.2/1] rounded-2xl border border-white/20 bg-black/10 backdrop-blur-[2px] shadow-2xl overflow-hidden">
+          {/* Card Frame Glowing Corners */}
+          <div className="absolute -top-[1px] -left-[1px] w-6 h-6 border-t-2 border-l-2 border-[#FF7A18] rounded-tl-xl" />
+          <div className="absolute -top-[1px] -right-[1px] w-6 h-6 border-t-2 border-r-2 border-[#FF7A18] rounded-tr-xl" />
+          <div className="absolute -bottom-[1px] -left-[1px] w-6 h-6 border-b-2 border-l-2 border-[#FF7A18] rounded-bl-xl" />
+          <div className="absolute -bottom-[1px] -right-[1px] w-6 h-6 border-b-2 border-r-2 border-[#FF7A18] rounded-br-xl" />
+
+          {/* Sweeping Laser Line Animation */}
+          {status !== "CONFIRMED" && (
+            <div className="absolute inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-[#FF7A18] to-transparent shadow-[0_0_12px_#FF7A18] animate-scan-laser" />
+          )}
+
+          {/* Center Target Crosshair Grid */}
+          <div className="absolute inset-0 flex items-center justify-center opacity-30">
+            <div className="w-8 h-[1px] bg-white/40" />
+            <div className="h-8 w-[1px] bg-white/40" />
+          </div>
+
+          {/* Live Candidate Detection Pill */}
+          {candidateLive && status !== "CONFIRMED" && (
+            <div className="absolute bottom-2 inset-x-0 flex justify-center">
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-[#FF7A18]/90 text-white tracking-wider backdrop-blur-sm shadow-md animate-fade-in">
+                {candidateLive}
               </span>
-
-              {guidance && (
-                <span className="pelican-guidance-pill">
-                  {guidance === "LOW_LIGHT" && t.guidanceLowLight}
-                  {guidance === "GLARE" && t.guidanceGlare}
-                  {guidance === "BLURRY" && t.guidanceBlurry}
-                  {guidance === "TOO_BRIGHT" && t.guidanceTooBright}
-                </span>
-              )}
             </div>
+          )}
+        </div>
+
+        {/* Guidance / Status Text */}
+        <div className="mt-4 flex flex-col items-center gap-1 text-center">
+          <p className="text-xs font-medium text-white/90 drop-shadow-md">
+            {lang === "ar" ? "وجه الكاميرا نحو الرقم للتعرف الفوري" : "Align number inside box to scan instantly"}
+          </p>
+          {guidance && (
+            <p className="text-[11px] text-amber-300 font-medium drop-shadow-sm">
+              {guidance === "LOW_LIGHT"
+                ? lang === "ar"
+                  ? "إضاءة منخفضة - قرب الكاميرا أو شغل الفلاش"
+                  : "Low light - move closer or enable torch"
+                : guidance === "BLURRY"
+                  ? lang === "ar"
+                    ? "ثبت الكاميرا قليلاً"
+                    : "Hold steady"
+                  : ""}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* ── Permission / Error Banner ──────────────────────────────────── */}
+      {needsGesture && (
+        <div className="absolute inset-0 z-30 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center">
+          <div className="w-12 h-12 rounded-full bg-[#FF7A18]/20 flex items-center justify-center text-[#FF7A18] mb-3">
+            <RefreshCw size={24} className="animate-spin" />
           </div>
-
-          {/* Quick Controls Bar */}
-          <div className="pelican-controls-bar">
-            {torchSupported && !needsGesture && (
-              <button
-                type="button"
-                className={`pelican-ctrl-btn ${torchOn ? "pelican-ctrl-btn--active" : ""}`}
-                onClick={() => void toggleTorch()}
-                aria-label="Toggle flash"
-              >
-                <Flashlight size={18} />
-                <span>{torchOn ? t.flashOn : t.flashOff}</span>
-              </button>
-            )}
-
-            <button
-              type="button"
-              className={`pelican-ctrl-btn ${showDebug ? "pelican-ctrl-btn--active" : ""}`}
-              onClick={() => setShowDebug((v) => !v)}
-              aria-label="Toggle diagnostics"
-            >
-              <Activity size={18} />
-              <span>{t.debugTelemetry}</span>
-            </button>
-
-            <button
-              type="button"
-              className="pelican-ctrl-btn"
-              onClick={() => fileInputRef.current?.click()}
-              aria-label="Upload photo"
-            >
-              <ImageUp size={18} />
-              <span>{t.uploadImage}</span>
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="sr-only"
-              onChange={(e) => void handleImageUpload(e)}
-            />
-          </div>
-
-          {/* Diagnostics / Telemetry Overlay */}
-          {showDebug && (
-            <div className="pelican-debug-hud">
-              <div className="pelican-debug-hud__title">
-                <Activity size={13} />
-                <span>Real-Time Engine Telemetry</span>
-              </div>
-              <div className="pelican-debug-hud__grid">
-                <div>FPS: <b>{telemetry.fps}</b></div>
-                <div>OCR Latency: <b>{telemetry.ocrMs}ms</b></div>
-                <div>Pipeline: <b>{telemetry.totalPipelineMs}ms</b></div>
-                <div>Sharpness: <b>{telemetry.lastSharpness}</b></div>
-                <div>Luma: <b>{telemetry.lastBrightness}</b></div>
-                <div>Pass: <b>{telemetry.activePass}</b></div>
-              </div>
-              {telemetry.detectedCandidate && (
-                <div className="pelican-debug-hud__cand">
-                  Candidate: <code>{telemetry.detectedCandidate}</code>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Camera Permission Gesture Modal */}
-          {needsGesture && (
-            <div className="pelican-modal-card">
-              <Camera size={32} className="text-amber-400 mb-2" />
-              <h3>Camera Access</h3>
-              <p>Please allow camera permission to begin scanning.</p>
-              <button
-                type="button"
-                className="button button--primary w-full mt-3"
-                onClick={() => void startCamera()}
-              >
-                {t.tapToStart}
-              </button>
-            </div>
-          )}
-
-          {cameraError && (
-            <div className="pelican-modal-card">
-              <Camera size={32} className="text-rose-400 mb-2" />
-              <h3>Camera Unavailable</h3>
-              <p>{t.cameraUnavailable}</p>
-              <button
-                type="button"
-                className="button button--secondary w-full mt-3"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                {t.uploadImage}
-              </button>
-            </div>
-          )}
-        </>
+          <h3 className="text-base font-bold text-white mb-1">
+            {lang === "ar" ? "إذن الكاميرا مطلوب" : "Camera Access Required"}
+          </h3>
+          <p className="text-xs text-white/70 max-w-xs mb-4">
+            {lang === "ar"
+              ? "يرجى الضغط لبدء الكاميرا والموافقة على إذن التصوير"
+              : "Tap below to initialize live camera scanning"}
+          </p>
+          <button
+            type="button"
+            className="px-5 py-2.5 rounded-xl font-bold text-sm bg-[#FF7A18] text-white shadow-lg active:scale-95 transition-all"
+            onClick={startCamera}
+          >
+            {lang === "ar" ? "تشغيل الكاميرا" : "Start Camera"}
+          </button>
+        </div>
       )}
 
-      {/* Production Full-Screen Barcode Result Modal */}
+      {cameraError && !needsGesture && (
+        <div className="absolute inset-0 z-30 bg-black/90 flex flex-col items-center justify-center p-6 text-center">
+          <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center text-red-400 mb-3">
+            <X size={24} />
+          </div>
+          <h3 className="text-base font-bold text-white mb-1">
+            {lang === "ar" ? "تعذر فتح الكاميرا" : "Camera Unavailable"}
+          </h3>
+          <p className="text-xs text-white/70 max-w-xs mb-4">
+            {lang === "ar"
+              ? "تأكد من منح صلاحية الكاميرا من إعدادات التطبيق"
+              : "Please check camera permissions in your device settings"}
+          </p>
+          <button
+            type="button"
+            className="px-5 py-2.5 rounded-xl font-bold text-sm bg-white/15 text-white active:scale-95 transition-all"
+            onClick={startCamera}
+          >
+            {lang === "ar" ? "إعادة المحاولة" : "Try Again"}
+          </button>
+        </div>
+      )}
+
+      {/* ── Instant Scanned Barcode Card Modal ──────────────────────────── */}
       {scannedBarcode && (
-        <div className="scanner-result-overlay" role="dialog" aria-label={t.scanResult}>
-          <div className="scanner-result-card">
-            <div className="scanner-result-card__header">
-              <div className="scanner-result-card__badge-row">
-                <span className="scanner-result-card__badge">
-                  <Sparkles size={13} /> {t.scanResult}
-                </span>
-                <span className="scanner-result-card__format">
-                  {detectBarcodeFormat(scannedBarcode)}
-                </span>
-              </div>
-              <button
-                type="button"
-                className="scanner-result-card__close"
-                onClick={handleScanNext}
-                aria-label="Close"
-              >
-                <X size={20} />
-              </button>
+        <div className="absolute inset-0 z-40 bg-black/85 backdrop-blur-lg flex flex-col items-center justify-center p-4 animate-fade-in">
+          <div className="w-full max-w-sm rounded-3xl bg-neutral-900 border border-white/15 shadow-2xl p-5 flex flex-col items-center">
+            {/* Header / Success Pill */}
+            <div className="flex items-center justify-between w-full mb-3">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                <Sparkles size={12} />
+                {lang === "ar" ? "تم التعرف بنجاح" : "Scanned Instantly"}
+              </span>
+              <span className="text-xs font-mono text-white/50">
+                {detectBarcodeFormat(scannedBarcode)}
+              </span>
             </div>
 
-            {/* Formatted readable digits */}
-            <div className="scanner-result-digits">
-              <code>{scannedBarcode}</code>
-            </div>
-
-            {/* High-contrast generated barcode image */}
-            <div className="scanner-result-card__barcode">
+            {/* Generated Vector Barcode View */}
+            <div className="w-full bg-white rounded-2xl p-4 shadow-inner flex flex-col items-center justify-center my-2">
               <BarcodePreview
                 value={scannedBarcode}
                 format={detectBarcodeFormat(scannedBarcode)}
                 onError={() => {}}
+                showActions={false}
               />
             </div>
 
-            {/* Quick Actions */}
-            <div className="scanner-result-actions">
+            {/* Scanned Number Display & Copy Button */}
+            <div className="w-full mt-3 flex items-center justify-between px-3 py-2 rounded-xl bg-white/5 border border-white/10">
+              <div className="flex flex-col">
+                <span className="text-[10px] uppercase font-bold tracking-wider text-white/50">
+                  {lang === "ar" ? "الرقم المقروء" : "Scanned Value"}
+                </span>
+                <span className="text-sm font-mono font-bold text-white tracking-wider">
+                  {scannedBarcode}
+                </span>
+              </div>
               <button
                 type="button"
-                className="button button--primary scanner-result-btn scanner-result-btn--next"
+                className="p-2 rounded-lg bg-white/10 hover:bg-white/20 active:scale-95 text-white transition-all"
+                onClick={handleCopy}
+                aria-label="Copy barcode number"
+              >
+                {copied ? <Check size={16} className="text-emerald-400" /> : <Copy size={16} />}
+              </button>
+            </div>
+
+            {/* Scan Next / Action Buttons */}
+            <div className="w-full mt-4 flex gap-2">
+              <button
+                type="button"
+                className="flex-1 py-3 px-4 rounded-xl font-bold text-sm bg-[#FF7A18] text-white flex items-center justify-center gap-2 shadow-lg shadow-[#FF7A18]/25 active:scale-95 transition-all"
                 onClick={handleScanNext}
               >
-                <RefreshCw size={18} />
-                <span>{t.scanNext}</span>
+                <RefreshCw size={16} />
+                <span>{lang === "ar" ? "مسح رقم آخر" : "Scan Next"}</span>
               </button>
-
-              <div className="scanner-result-secondary-actions">
-                <button
-                  type="button"
-                  className="button button--secondary scanner-result-btn"
-                  onClick={() => void handleCopy()}
-                >
-                  {copied ? <Check size={16} className="text-emerald-400" /> : <Copy size={16} />}
-                  <span>{copied ? t.copied : t.copyNumber}</span>
-                </button>
-
-                <button
-                  type="button"
-                  className="button button--secondary scanner-result-btn"
-                  onClick={() => void handleShare()}
-                >
-                  <Share2 size={16} />
-                  <span>{t.shareBarcode}</span>
-                </button>
-
-                <button
-                  type="button"
-                  className={`button button--secondary scanner-result-btn ${maxBrightness ? "button--active" : ""}`}
-                  onClick={() => setMaxBrightness((v) => !v)}
-                  aria-label="Toggle max brightness"
-                >
-                  {maxBrightness ? <Sun size={16} /> : <Moon size={16} />}
-                </button>
-              </div>
             </div>
           </div>
         </div>

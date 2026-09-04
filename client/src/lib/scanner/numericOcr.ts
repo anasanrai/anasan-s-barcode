@@ -8,7 +8,7 @@ import {
 import { preprocessFrame, type PreprocessPass } from "./preprocessing";
 import type { CandidateResult } from "./types";
 
-// ── Tesseract WASM Worker Singleton ──────────────────────────────────────────
+// ── Tesseract WASM Worker Singleton & Watchdog ──────────────────────────────
 
 type TesseractWorker = {
   recognize: (src: HTMLCanvasElement | string) => Promise<{
@@ -22,47 +22,60 @@ type TesseractWorker = {
 };
 
 let tesseractWorkerPromise: Promise<TesseractWorker> | null = null;
-let tesseractReady = false;
+let activeWorker: TesseractWorker | null = null;
+
+function getBaseUrl(): string {
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return window.location.origin;
+  }
+  return "";
+}
 
 export async function getTesseractWorker(): Promise<TesseractWorker> {
+  if (activeWorker) return activeWorker;
   if (tesseractWorkerPromise) return tesseractWorkerPromise;
 
   tesseractWorkerPromise = (async () => {
     try {
       const { createWorker } = await import("tesseract.js");
+      const base = getBaseUrl();
+      const workerUrl = base ? new URL("/tesseract/worker.min.js", base).href : "/tesseract/worker.min.js";
+      const coreUrl = base ? new URL("/tesseract", base).href : "/tesseract";
+      const langUrl = base ? new URL("/tessdata", base).href : "/tessdata";
+
       let w: TesseractWorker;
 
       try {
-        // Self-hosted offline assets
+        // Self-hosted offline assets with cacheMethod "none" to prevent IndexedDB locks in Android WebViews
         w = (await (createWorker as any)("eng", 1, {
-          workerPath: "/tesseract/worker.min.js",
-          corePath: "/tesseract",
-          langPath: "/tessdata",
+          workerPath: workerUrl,
+          corePath: coreUrl,
+          langPath: langUrl,
           gzip: true,
-          cacheMethod: "write",
+          cacheMethod: "none",
         })) as unknown as TesseractWorker;
-      } catch {
-        // Fallback if offline path fails in test/development
+      } catch (e) {
+        // Fallback for CDN or standard loading
         w = (await (createWorker as any)("eng", 1, {
           langPath: "https://tessdata.projectnaptha.com/4.0.0_fast",
           gzip: true,
-          cacheMethod: "write",
+          cacheMethod: "none",
         })) as unknown as TesseractWorker;
       }
 
       try {
         await w.setParameters?.({
-          tessedit_char_whitelist: "0123456789",
-          tessedit_pageseg_mode: "7" as unknown as number, // Single text line mode
-          classify_bln_numeric_mode: "1" as unknown as number,
+          // Allow digits and common screen label characters (Barcode, SKU, :, etc.)
+          tessedit_char_whitelist: "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz: -#",
+          tessedit_pageseg_mode: "7" as unknown as number, // Single text line mode for instant bank-card speed
         });
       } catch {}
 
-      tesseractReady = true;
+      activeWorker = w;
       return w;
     } catch (err) {
       tesseractWorkerPromise = null;
-      tesseractReady = false;
+      activeWorker = null;
       throw err;
     }
   })();
@@ -113,18 +126,20 @@ export interface RecognitionOptions {
   pass?: PreprocessPass;
   strict?: boolean;
   rules?: ScanRuleConfig;
+  timeoutMs?: number;
 }
 
 /**
- * Execute OCR recognition on an input canvas.
+ * Execute OCR recognition with strict timeout watchdog to guarantee the scanning loop never freezes.
  */
 export async function recognizeNumericTarget(
   canvas: HTMLCanvasElement,
   options: RecognitionOptions = {},
 ): Promise<CandidateResult | null> {
   const startTime = Date.now();
+  const timeoutLimit = options.timeoutMs ?? 450;
 
-  // 1. Check Hardware BarcodeDetector first (takes <5ms if available)
+  // 1. Check Hardware BarcodeDetector first (<5ms if barcode is visually presented)
   try {
     const detector = await getHardwareBarcodeDetector();
     if (detector) {
@@ -148,13 +163,19 @@ export async function recognizeNumericTarget(
     }
   } catch {}
 
-  // 2. Preprocess frame with chosen pass
+  // 2. Preprocess frame with adaptive pass (Takes ~1-2ms on pre-allocated buffers)
   const preprocessed = preprocessFrame(canvas, options.pass ?? "standard");
 
-  // 3. Run fast local Tesseract WASM
+  // 3. Run fast local Tesseract WASM with watchdog timeout
   try {
     const worker = await getTesseractWorker();
-    const { data } = await worker.recognize(preprocessed);
+
+    const ocrPromise = worker.recognize(preprocessed);
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("OCR timeout")), timeoutLimit),
+    );
+
+    const { data } = await Promise.race([ocrPromise, timeoutPromise]);
     const rawText = data.text ?? "";
     const confidence = Math.round(data.confidence ?? 80);
 

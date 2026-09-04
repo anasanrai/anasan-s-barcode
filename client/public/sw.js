@@ -13,7 +13,6 @@ const APP_SHELL = [
   "/icon-192.png",
   "/icon-512.png",
   "/og.svg",
-  "/about/anasan.jpg",
 ];
 
 // Heavy OCR assets (~14MB) — warmed in the background after activation so

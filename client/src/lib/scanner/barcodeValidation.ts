@@ -27,7 +27,6 @@ export const DEFAULT_SCAN_RULES: Required<Omit<ScanRuleConfig, "exactLength" | "
  */
 export function calculateGtinCheckDigit(digitsWithoutCheck: string): number {
   let sum = 0;
-  // GS1 standard right-to-left weighting: alternating 3 and 1 starting with 3 on the last data digit
   const len = digitsWithoutCheck.length;
   for (let i = 0; i < len; i++) {
     const digit = parseInt(digitsWithoutCheck[i], 10);
@@ -118,6 +117,7 @@ export function detectBarcodeFormat(value: string): BarcodeFormat {
 /**
  * Extract clean numeric targets from OCR text.
  * Preserves leading zeroes as strings.
+ * Handles prefixes like "Barcode: 06287025900957", "SKU: 12345678", space-separated numbers, etc.
  */
 export function extractNumericCandidate(
   ocrText: string,
@@ -128,26 +128,39 @@ export function extractNumericCandidate(
   const minLen = rules.minLength ?? DEFAULT_SCAN_RULES.minLength;
   const maxLen = rules.maxLength ?? DEFAULT_SCAN_RULES.maxLength;
 
-  // 1. Normalize line breaks and spacing within digit runs (e.g. "0628 1016 0037 88" -> "06281016003788")
+  // 1. First look for explicit labeled barcode lines: e.g. "Barcode: 06287025900957", "Item# 06281016"
+  const labeledRegex = new RegExp(
+    `(?:barcode|sku|upc|ean|item|code|no|#|gtin)[:\\s#]*([0-9]{${minLen},${maxLen}})`,
+    "i",
+  );
+  const labeledMatch = ocrText.match(labeledRegex);
+  if (labeledMatch && labeledMatch[1]) {
+    const candidate = labeledMatch[1];
+    if (validateBarcodeString(candidate, rules).valid) {
+      return candidate;
+    }
+  }
+
+  // 2. Normalize line breaks and spacing within digit runs (e.g. "0628 7025 9009 57" -> "06287025900957")
   let text = ocrText.replace(/\r\n/g, "\n");
   text = text.replace(/(\d)[ \t\.\-_]+(?=\d)/g, "$1");
 
-  // 2. Normalize common OCR character confusions adjacent to digits
+  // 3. Normalize common OCR character confusions adjacent to digits
   const cleaned = text
     .replace(/[Oo](?=\d)/g, "0")
     .replace(/(?<=\d)[Oo]/g, "0")
     .replace(/[Il|](?=\d)/g, "1")
     .replace(/(?<=\d)[Il|]/g, "1");
 
-  // 3. Find all candidate digit sequences matching length bounds
+  // 4. Find all candidate digit sequences matching length bounds
   const pattern = new RegExp(`\\b\\d{${minLen},${maxLen}}\\b`, "g");
   const matches = cleaned.match(pattern) || cleaned.match(new RegExp(`\\d{${minLen},${maxLen}}`, "g"));
 
   if (!matches || matches.length === 0) return null;
 
-  // 4. Rank candidates:
-  // - Candidates with valid GTIN checksums get highest priority
-  // - Otherwise, longer contiguous sequences over shorter fragments
+  // 5. Rank candidates:
+  // - Candidates with valid GTIN checksums get highest priority (+50 bonus)
+  // - Longer numbers preferred over short fragments
   let bestCandidate: string | null = null;
   let bestScore = -1;
 

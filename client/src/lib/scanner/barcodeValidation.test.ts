@@ -85,6 +85,16 @@ describe("barcodeValidation engine", () => {
       expect(extractNumericCandidate(ocr)).toBe("839201");
     });
 
+    it("extracts barcode number from electronic display labeled format (video test case)", () => {
+      const ocr = "Oska Glass Sparkling Water 330ml\nSKU: 3T1VT7\nBarcode: 06287025900957";
+      expect(extractNumericCandidate(ocr)).toBe("06287025900957");
+    });
+
+    it("extracts 8-digit manual code (video test case 2)", () => {
+      const ocr = "12546489";
+      expect(extractNumericCandidate(ocr)).toBe("12546489");
+    });
+
     it("preserves leading zero on short and long numbers", () => {
       const ocr = "Batch: 004921";
       const result = extractNumericCandidate(ocr);

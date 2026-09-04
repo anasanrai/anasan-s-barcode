@@ -3,7 +3,6 @@ import { Barcode, Camera } from "lucide-react";
 import BarcodeGenerator from "@/components/BarcodeGenerator";
 import PelicanScanner from "@/components/PelicanScanner";
 import Header from "@/components/Header";
-import AboutPage from "./AboutPage";
 import { useNumberHistory } from "@/lib/useNumberHistory";
 import { useLang } from "@/lib/i18n";
 
@@ -21,12 +20,6 @@ function useIsMobile() {
   return mobile;
 }
 
-function initialView(): "app" | "about" {
-  if (typeof window === "undefined") return "app";
-  if (window.location.pathname.startsWith("/about")) return "about";
-  return "app";
-}
-
 type Screen = "scan" | "generate";
 
 export default function Home() {
@@ -38,7 +31,6 @@ export default function Home() {
     if (qp === "generate") return "generate";
     return isMobile ? "scan" : "generate";
   });
-  const [view, setView] = useState<"app" | "about">(initialView);
   const [detectedNumber, setDetectedNumber] = useState("");
 
   const { addNumber } = useNumberHistory();
@@ -47,24 +39,10 @@ export default function Home() {
     setScreen(isMobile ? "scan" : "generate");
   }, [isMobile]);
 
-  // Listen for browser popstate / back button
-  useEffect(() => {
-    const onPop = () => {
-      if (window.location.pathname.startsWith("/about")) {
-        setView("about");
-      } else {
-        setView("app");
-      }
-    };
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
-  }, []);
-
   const handleDetected = useCallback(
     (value: string) => {
       addNumber(value);
       setDetectedNumber(value);
-      // On desktop, transition to workbench; on mobile, keep dedicated camera result modal with Scan Again
       if (!isMobile) {
         setScreen("generate");
       }
@@ -74,20 +52,6 @@ export default function Home() {
 
   const handleGoToScan = () => setScreen("scan");
   const handleGoToGenerate = () => setScreen("generate");
-
-  const handleOpenAbout = () => {
-    window.history.pushState({}, "", "/about");
-    setView("about");
-  };
-
-  const handleCloseAbout = () => {
-    window.history.pushState({}, "", "/");
-    setView("app");
-  };
-
-  if (view === "about") {
-    return <AboutPage onBack={handleCloseAbout} />;
-  }
 
   /** Unified 2-tab navigation bar */
   const tabBar = (
@@ -116,7 +80,7 @@ export default function Home() {
   if (isMobile) {
     return (
       <div className="pelican-mobile-shell">
-        <Header onOpenAbout={handleOpenAbout} />
+        <Header />
         <main className={`pelican-app pelican-app--${screen}`}>
           {screen === "scan" && <PelicanScanner onDetected={handleDetected} />}
           {screen === "generate" && (
@@ -131,10 +95,10 @@ export default function Home() {
     );
   }
 
-  // Desktop layout (>= 1100px): centered stage
+  // Desktop layout (>= 1100px)
   return (
     <div className="desktop-workspace">
-      <Header onOpenAbout={handleOpenAbout} />
+      <Header />
 
       <main className="desktop-stage">
         {screen === "scan" ? (
