@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Barcode, Camera, Sparkles } from "lucide-react";
+import { Barcode, Camera, Coffee } from "lucide-react";
 import BarcodeGenerator from "@/components/BarcodeGenerator";
 import PelicanScanner from "@/components/PelicanScanner";
 import Header from "@/components/Header";
@@ -7,6 +7,7 @@ import LeaderboardModal from "@/components/LeaderboardModal";
 import AdminPage from "./AdminPage";
 import StarGalleryPage from "./StarGalleryPage";
 import AboutPage from "./AboutPage";
+import EvdPage from "./EvdPage";
 import { useNumberHistory } from "@/lib/useNumberHistory";
 import { useLang } from "@/lib/i18n";
 
@@ -24,26 +25,28 @@ function useIsMobile() {
   return mobile;
 }
 
-function initialView(): "app" | "admin" | "stars" | "about" {
+function initialView(): "app" | "admin" | "stars" | "about" | "evd" {
   if (typeof window === "undefined") return "app";
   if (window.location.pathname.startsWith("/admin")) return "admin";
   if (window.location.pathname.startsWith("/stars")) return "stars";
   if (window.location.pathname.startsWith("/about")) return "about";
+  if (window.location.pathname.startsWith("/evd")) return "evd";
   return "app";
 }
 
-type Screen = "scan" | "generate";
+type Screen = "scan" | "generate" | "evd";
 
 export default function Home() {
-  const { t } = useLang();
+  const { lang } = useLang();
   const isMobile = useIsMobile();
   const [screen, setScreen] = useState<Screen>(() => {
     const qp = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("screen") : null;
     if (qp === "scan") return "scan";
+    if (qp === "evd") return "evd";
     if (qp === "generate" || qp === "lookup") return "generate";
     return isMobile ? "scan" : "generate";
   });
-  const [view, setView] = useState<"app" | "admin" | "stars" | "about">(initialView);
+  const [view, setView] = useState<"app" | "admin" | "stars" | "about" | "evd">(initialView);
   const [detectedNumber, setDetectedNumber] = useState("");
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
 
@@ -62,6 +65,9 @@ export default function Home() {
         setView("stars");
       } else if (window.location.pathname.startsWith("/about")) {
         setView("about");
+      } else if (window.location.pathname.startsWith("/evd")) {
+        setScreen("evd");
+        setView("app");
       } else {
         setView("app");
       }
@@ -80,6 +86,7 @@ export default function Home() {
 
   const handleGoToScan = () => setScreen("scan");
   const handleGoToGenerate = () => setScreen("generate");
+  const handleGoToEvd = () => setScreen("evd");
 
   const handleOpenAdmin = () => {
     window.history.pushState({}, "", "/admin");
@@ -123,24 +130,34 @@ export default function Home() {
     return <AboutPage onBack={handleCloseAbout} />;
   }
 
-  /** Unified 2-surface tab bar */
+  /** Unified 3-tab navigation bar */
   const tabBar = (
     <div className="pelican-tabs">
-      <button
-        type="button"
-        className={`pelican-tab ${screen === "scan" ? "pelican-tab--active" : ""}`}
-        onClick={handleGoToScan}
-      >
-        <Camera size={16} />
-        <span>{t.scan}</span>
-      </button>
       <button
         type="button"
         className={`pelican-tab ${screen === "generate" ? "pelican-tab--active" : ""}`}
         onClick={handleGoToGenerate}
       >
         <Barcode size={16} />
-        <span>{t.generate}</span>
+        <span>{lang === "ar" ? "المولد" : "Generator"}</span>
+      </button>
+
+      <button
+        type="button"
+        className={`pelican-tab pelican-tab--evd ${screen === "evd" ? "pelican-tab--active" : ""}`}
+        onClick={handleGoToEvd}
+      >
+        <Coffee size={16} />
+        <span>EVD</span>
+      </button>
+
+      <button
+        type="button"
+        className={`pelican-tab ${screen === "scan" ? "pelican-tab--active" : ""}`}
+        onClick={handleGoToScan}
+      >
+        <Camera size={16} />
+        <span>{lang === "ar" ? "المسح" : "Scanner"}</span>
       </button>
     </div>
   );
@@ -159,6 +176,16 @@ export default function Home() {
           {screen === "generate" && (
             <BarcodeGenerator
               initialValue={detectedNumber}
+              onOpenScanner={handleGoToScan}
+            />
+          )}
+          {screen === "evd" && (
+            <EvdPage
+              onBack={handleGoToGenerate}
+              onSelectBarcode={(barcode) => {
+                setDetectedNumber(barcode);
+                setScreen("generate");
+              }}
             />
           )}
         </main>
@@ -173,7 +200,7 @@ export default function Home() {
     );
   }
 
-  // Desktop layout (>= 1100px): centered, generator & lookup store workbench
+  // Desktop layout (>= 1100px): centered stage
   return (
     <div className="desktop-workspace">
       <Header
@@ -187,10 +214,21 @@ export default function Home() {
           <div className="desktop-stage__scanner">
             <PelicanScanner onDetected={handleDetected} />
           </div>
+        ) : screen === "evd" ? (
+          <div className="desktop-stage__evd">
+            <EvdPage
+              onBack={handleGoToGenerate}
+              onSelectBarcode={(barcode) => {
+                setDetectedNumber(barcode);
+                setScreen("generate");
+              }}
+            />
+          </div>
         ) : (
           <div className="desktop-stage__generator">
             <BarcodeGenerator
               initialValue={detectedNumber}
+              onOpenScanner={handleGoToScan}
             />
           </div>
         )}
@@ -203,7 +241,15 @@ export default function Home() {
           onClick={handleGoToGenerate}
         >
           <Barcode size={16} />
-          <span>{t.generate}</span>
+          <span>{lang === "ar" ? "المولد" : "Generator"}</span>
+        </button>
+        <button
+          type="button"
+          className={`pelican-tab pelican-tab--evd ${screen === "evd" ? "pelican-tab--active" : ""}`}
+          onClick={handleGoToEvd}
+        >
+          <Coffee size={16} />
+          <span>EVD Coffee</span>
         </button>
         <button
           type="button"
@@ -211,7 +257,7 @@ export default function Home() {
           onClick={handleGoToScan}
         >
           <Camera size={16} />
-          <span>{t.scan}</span>
+          <span>{lang === "ar" ? "المسح" : "Scanner"}</span>
         </button>
       </div>
 
