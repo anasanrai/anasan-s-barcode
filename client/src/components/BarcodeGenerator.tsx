@@ -10,9 +10,11 @@ const FORMAT_OPTIONS = Object.keys(FORMAT_CONFIG) as BarcodeFormat[];
 
 type Props = {
   initialValue?: string;
+  /** When set by a parent (e.g. Lookup panel), immediately loads this value into the generator. */
+  pushedValue?: string;
 };
 
-export default function BarcodeGenerator({ initialValue = "" }: Props) {
+export default function BarcodeGenerator({ initialValue = "", pushedValue }: Props) {
   const { t, lang } = useLang();
   const [input, setInput] = useState(initialValue);
   const [format, setFormat] = useState<BarcodeFormat>("CODE128");
@@ -26,6 +28,17 @@ export default function BarcodeGenerator({ initialValue = "" }: Props) {
       setError("");
     }
   }, [initialValue]);
+
+  // When a product is selected from the Lookup panel, push its barcode in.
+  // pushedValue has the format "BARCODE__v{n}" to allow re-pushing the same barcode.
+  useEffect(() => {
+    if (pushedValue) {
+      const barcode = pushedValue.replace(/__v\d+$/, "");
+      setInput(barcode);
+      setError("");
+      setMode("barcode");
+    }
+  }, [pushedValue]);
 
   const resolvedNumber = useMemo(() => {
     if (!input) return "";

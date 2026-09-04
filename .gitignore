@@ -121,3 +121,8 @@ temp/
 client/public/__manus__/version.json
 .project-config.json
 .vercel
+graphify-out/
+task.md
+*.csv
+
+
