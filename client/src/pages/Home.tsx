@@ -1,15 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Barcode, Camera, Search } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Barcode, Camera, Sparkles } from "lucide-react";
 import BarcodeGenerator from "@/components/BarcodeGenerator";
 import PelicanScanner from "@/components/PelicanScanner";
 import Header from "@/components/Header";
 import LeaderboardModal from "@/components/LeaderboardModal";
-import LookupPanel from "@/components/LookupPanel";
 import AdminPage from "./AdminPage";
 import StarGalleryPage from "./StarGalleryPage";
 import AboutPage from "./AboutPage";
 import { useNumberHistory } from "@/lib/useNumberHistory";
-import type { Product } from "@/lib/productDb";
+import { useLang } from "@/lib/i18n";
 
 function useIsMobile() {
   const [mobile, setMobile] = useState(() =>
@@ -33,23 +32,20 @@ function initialView(): "app" | "admin" | "stars" | "about" {
   return "app";
 }
 
-type Screen = "scan" | "generate" | "lookup";
+type Screen = "scan" | "generate";
 
 export default function Home() {
+  const { t } = useLang();
   const isMobile = useIsMobile();
   const [screen, setScreen] = useState<Screen>(() => {
     const qp = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("screen") : null;
-    if (qp === "scan" || qp === "generate" || qp === "lookup") return qp;
+    if (qp === "scan") return "scan";
+    if (qp === "generate" || qp === "lookup") return "generate";
     return isMobile ? "scan" : "generate";
   });
   const [view, setView] = useState<"app" | "admin" | "stars" | "about">(initialView);
   const [detectedNumber, setDetectedNumber] = useState("");
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
-
-  // Track the barcode pushed from Lookup → Generator
-  // Use a versioned object so the same barcode can be pushed repeatedly
-  const [pushedBarcode, setPushedBarcode] = useState<{ value: string; version: number } | null>(null);
-  const pushVersion = useRef(0);
 
   const { addNumber } = useNumberHistory();
 
@@ -82,16 +78,8 @@ export default function Home() {
     [addNumber],
   );
 
-  /** Called by LookupPanel when a product is selected */
-  const handleProductSelect = useCallback((_barcode: string, product: Product) => {
-    pushVersion.current += 1;
-    setPushedBarcode({ value: product.barcode, version: pushVersion.current });
-    setScreen("generate");
-  }, []);
-
   const handleGoToScan = () => setScreen("scan");
   const handleGoToGenerate = () => setScreen("generate");
-  const handleGoToLookup = () => setScreen("lookup");
 
   const handleOpenAdmin = () => {
     window.history.pushState({}, "", "/admin");
@@ -135,7 +123,7 @@ export default function Home() {
     return <AboutPage onBack={handleCloseAbout} />;
   }
 
-  /** Tab bar shared across mobile screens */
+  /** Unified 2-surface tab bar */
   const tabBar = (
     <div className="pelican-tabs">
       <button
@@ -143,24 +131,16 @@ export default function Home() {
         className={`pelican-tab ${screen === "scan" ? "pelican-tab--active" : ""}`}
         onClick={handleGoToScan}
       >
-        <Camera size={15} />
-        <span>Scan</span>
+        <Camera size={16} />
+        <span>{t.scan}</span>
       </button>
       <button
         type="button"
         className={`pelican-tab ${screen === "generate" ? "pelican-tab--active" : ""}`}
         onClick={handleGoToGenerate}
       >
-        <Barcode size={15} />
-        <span>Generate</span>
-      </button>
-      <button
-        type="button"
-        className={`pelican-tab pelican-tab--lookup ${screen === "lookup" ? "pelican-tab--active" : ""}`}
-        onClick={handleGoToLookup}
-      >
-        <Search size={15} />
-        <span>Lookup</span>
+        <Barcode size={16} />
+        <span>{t.generate}</span>
       </button>
     </div>
   );
@@ -179,10 +159,8 @@ export default function Home() {
           {screen === "generate" && (
             <BarcodeGenerator
               initialValue={detectedNumber}
-              pushedValue={pushedBarcode ? `${pushedBarcode.value}__v${pushedBarcode.version}` : undefined}
             />
           )}
-          {screen === "lookup" && <LookupPanel onSelect={handleProductSelect} />}
         </main>
         {tabBar}
 
@@ -195,14 +173,13 @@ export default function Home() {
     );
   }
 
-
-  // Desktop layout (>= 1100px): centered, generator-first stage
+  // Desktop layout (>= 1100px): centered, generator & lookup store workbench
   return (
     <div className="desktop-workspace">
       <Header
         onOpenLeaderboard={() => setIsLeaderboardOpen(true)}
         onGoToAdmin={handleOpenAdmin}
-              onOpenAbout={handleOpenAbout}
+        onOpenAbout={handleOpenAbout}
       />
 
       <main className="desktop-stage">
@@ -210,15 +187,10 @@ export default function Home() {
           <div className="desktop-stage__scanner">
             <PelicanScanner onDetected={handleDetected} />
           </div>
-        ) : screen === "lookup" ? (
-          <div className="desktop-stage__lookup">
-            <LookupPanel onSelect={handleProductSelect} />
-          </div>
         ) : (
           <div className="desktop-stage__generator">
             <BarcodeGenerator
               initialValue={detectedNumber}
-              pushedValue={pushedBarcode ? `${pushedBarcode.value}__v${pushedBarcode.version}` : undefined}
             />
           </div>
         )}
@@ -230,24 +202,16 @@ export default function Home() {
           className={`pelican-tab ${screen === "generate" ? "pelican-tab--active" : ""}`}
           onClick={handleGoToGenerate}
         >
-          <Barcode size={15} />
-          <span>Generate</span>
+          <Barcode size={16} />
+          <span>{t.generate}</span>
         </button>
         <button
           type="button"
           className={`pelican-tab ${screen === "scan" ? "pelican-tab--active" : ""}`}
           onClick={handleGoToScan}
         >
-          <Camera size={15} />
-          <span>Scan</span>
-        </button>
-        <button
-          type="button"
-          className={`pelican-tab pelican-tab--lookup ${screen === "lookup" ? "pelican-tab--active" : ""}`}
-          onClick={handleGoToLookup}
-        >
-          <Search size={15} />
-          <span>Lookup</span>
+          <Camera size={16} />
+          <span>{t.scan}</span>
         </button>
       </div>
 
