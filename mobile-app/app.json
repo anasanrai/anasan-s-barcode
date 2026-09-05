@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "Anasan Barcode",
+    "slug": "anasan-barcode",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "backgroundColor": "#000000"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.anasan.barcode",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Camera is used to scan numbers and generate barcodes."
+      }
+    },
+    "android": {
+      "package": "com.anasan.barcode",
+      "adaptiveIcon": {
+        "backgroundColor": "#000000",
+        "foregroundImage": "./assets/android-icon-foreground.png"
+      },
+      "permissions": ["android.permission.CAMERA"],
+      "predictiveBackGestureEnabled": false
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Camera is used to scan numbers and generate barcodes."
+        }
+      ],
+      "expo-haptics"
+    ],
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}
