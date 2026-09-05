@@ -20,10 +20,10 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up Node.js 22
+      - name: Set up Node.js 20
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
           cache: 'npm'
           cache-dependency-path: mobile-app/package-lock.json
 
@@ -40,7 +40,9 @@ jobs:
 
       - name: Expo Prebuild (generate native Android project)
         working-directory: mobile-app
-        run: npx expo prebuild --platform android --clean --non-interactive
+        env:
+          CI: '1'
+        run: npx expo prebuild --platform android --clean
 
       - name: Make Gradle executable
         working-directory: mobile-app
